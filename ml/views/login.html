@@ -76,6 +76,9 @@
       const msg  = document.getElementById('login-msg');
       const btn  = document.getElementById('btn-entrar');
 
+      // ✅ Detecta base do app (suite /ml)
+      const BASE = (location.pathname === '/ml' || location.pathname.startsWith('/ml/')) ? '/ml' : '';
+
       function showMsg(text, type) {
         msg.style.display = 'block';
         msg.textContent = text;
@@ -86,6 +89,15 @@
       function setLoading(isLoading) {
         btn.disabled = isLoading;
         btn.textContent = isLoading ? 'Entrando...' : 'Entrar';
+      }
+
+      function withBase(path) {
+        // já veio com /ml
+        if (path.startsWith('/ml/')) return path;
+        // veio absoluto na raiz
+        if (path.startsWith('/')) return BASE + path;
+        // veio relativo
+        return BASE + '/' + path;
       }
 
       form.addEventListener('submit', async (e) => {
@@ -104,7 +116,7 @@
         setLoading(true);
 
         try {
-          const resp = await fetch('/ml/api/auth/login', {
+          const resp = await fetch(`${BASE}/api/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include', // ✅ garante cookie JWT/ sessão
@@ -120,9 +132,9 @@
             return;
           }
 
-          // ✅ login OK → vai para select-conta
+          // ✅ login OK → vai para select-conta (sempre dentro do /ml)
           const redirect = data.redirect || '/select-conta';
-          window.location.href = redirect;
+          window.location.href = withBase(redirect);
 
         } catch (err) {
           showMsg('Erro de rede ao tentar logar. Verifique o servidor e tente novamente.', 'err');
