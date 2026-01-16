@@ -173,7 +173,7 @@
   async function load() {
     tbody.innerHTML = `<tr><td colspan="9" class="table-empty">Carregando…</td></tr>`;
     try {
-      const data = await api("/api/admin/oauth-states", { method: "GET" });
+      const data = await api("/ml/api/admin/oauth-states", { method: "GET" });
       all = Array.isArray(data.states) ? data.states : [];
       filtered = [...all];
       applyFilter();
@@ -187,7 +187,7 @@
   async function cleanupExpired() {
     if (!confirm("Limpar TODOS os oauth_states expirados?")) return;
     try {
-      const data = await api("/api/admin/oauth-states/cleanup", { method: "POST" });
+      const data = await api("/ml/api/admin/oauth-states/cleanup", { method: "POST" });
       showToast(`Expirados removidos: ${Number(data.deleted || 0)}`);
       await load();
     } catch (e) {
@@ -199,7 +199,7 @@
   async function deleteState(state) {
     if (!confirm("Remover este state?\n\nIsso só afeta a tentativa atual de OAuth/PKCE.")) return;
     try {
-      await api(`/api/admin/oauth-states/${encodeURIComponent(state)}`, { method: "DELETE" });
+      await api(`/ml/api/admin/oauth-states/${encodeURIComponent(state)}`, { method: "DELETE" });
       showToast("State removido.");
       await load();
     } catch (e) {

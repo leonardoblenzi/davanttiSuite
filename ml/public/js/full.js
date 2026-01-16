@@ -173,7 +173,7 @@
 
   async function loadWhoAmI() {
     try {
-      const data = await getJSON("/api/account/whoami");
+      const data = await getJSON("/ml/api/account/whoami");
       const label =
         data?.accountLabel || data?.accountKey || "Conta selecionada";
       currentAccountEls.forEach((el) => (el.textContent = label));
@@ -216,7 +216,7 @@
     params.set("pageSize", String(state.pageSize));
     if (state.q) params.set("q", state.q);
     if (state.status) params.set("status", state.status);
-    return `/api/full/anuncios?${params.toString()}`;
+    return `/ml/api/full/anuncios?${params.toString()}`;
   }
 
   function extractLastUpdateFromListResponse(data) {
@@ -469,7 +469,7 @@
       params.set("q", up);
       params.set("status", "all");
 
-      const data = await getJSON(`/api/full/anuncios?${params.toString()}`);
+      const data = await getJSON(`/ml/api/full/anuncios?${params.toString()}`);
       const found = (data?.results || []).some(
         (r) => String(r?.mlb || "").toUpperCase() === up
       );
@@ -488,7 +488,7 @@
       setLoading(true);
 
       const body = Array.isArray(mlbs) ? { mlbs } : {};
-      const data = await getJSON("/api/full/anuncios/sync", {
+      const data = await getJSON("/ml/api/full/anuncios/sync", {
         method: "POST",
         body: JSON.stringify(body),
       });
@@ -516,7 +516,7 @@
       (async () => {
         setLoading(true);
         try {
-          await getJSON("/api/full/anuncios/bulk-delete", {
+          await getJSON("/ml/api/full/anuncios/bulk-delete", {
             method: "POST",
             body: JSON.stringify({ mlbs }),
           });
@@ -538,7 +538,7 @@
     confirmRemoveBtn.onclick = async () => {
       setLoading(true);
       try {
-        await getJSON("/api/full/anuncios/bulk-delete", {
+        await getJSON("/ml/api/full/anuncios/bulk-delete", {
           method: "POST",
           body: JSON.stringify({ mlbs }),
         });
@@ -679,7 +679,7 @@
 
     if (addProductSubmitBtn) addProductSubmitBtn.disabled = true;
     try {
-      await getJSON("/api/full/anuncios", {
+      await getJSON("/ml/api/full/anuncios", {
         method: "POST",
         body: JSON.stringify({ mlb }),
       });

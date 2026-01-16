@@ -11,8 +11,8 @@
   const QUEUE = [];
   let running = false;
 
-  // ✅ Prefixo correto da feature (roteado em index.js via app.use('/api/excluir-anuncio', ...))
-  const API_BASE = "/api/excluir-anuncio";
+  // ✅ Prefixo correto da feature (roteado em index.js via app.use('/ml/api/excluir-anuncio', ...))
+  const API_BASE = "/ml/api/excluir-anuncio";
   const api = (p) => API_BASE + (p.startsWith("/") ? p : "/" + p);
 
   function wait(ms) {

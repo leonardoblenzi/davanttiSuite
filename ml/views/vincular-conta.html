@@ -95,7 +95,7 @@
         try {
           // Esse endpoint a gente cria no próximo passo.
           // Ele vai responder com { ok:true, url:"https://auth.mercadolivre...." }
-          const resp = await fetch('/api/meli/oauth/start', {
+          const resp = await fetch('/ml/api/meli/oauth/start', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',

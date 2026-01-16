@@ -190,7 +190,7 @@
   async function load() {
     tbody.innerHTML = `<tr><td colspan="11" class="table-empty">Carregando…</td></tr>`;
     try {
-      const data = await api("/api/admin/meli-tokens", { method: "GET" });
+      const data = await api("/ml/api/admin/meli-tokens", { method: "GET" });
       all = Array.isArray(data.tokens) ? data.tokens : [];
       filtered = [...all];
       applyFilter();
@@ -204,7 +204,7 @@
   async function clearTokens(meli_conta_id) {
     if (!confirm(`Limpar tokens da conta #${meli_conta_id}?\n\nIsso vai forçar reautenticação/OAuth.`)) return;
     try {
-      await api(`/api/admin/meli-tokens/${meli_conta_id}`, { method: "DELETE" });
+      await api(`/ml/api/admin/meli-tokens/${meli_conta_id}`, { method: "DELETE" });
       showToast("Tokens removidos.");
       await load();
     } catch (e) {
@@ -216,7 +216,7 @@
   async function revokeConta(meli_conta_id) {
     if (!confirm(`Marcar a conta #${meli_conta_id} como REVOGADA?`)) return;
     try {
-      await api(`/api/admin/meli-tokens/${meli_conta_id}/revogar-conta`, { method: "POST" });
+      await api(`/ml/api/admin/meli-tokens/${meli_conta_id}/revogar-conta`, { method: "POST" });
       showToast("Conta marcada como revogada.");
       await load();
     } catch (e) {

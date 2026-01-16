@@ -212,7 +212,7 @@
 
   async function loadMe() {
     try {
-      const { r, data } = await fetchJson("/api/auth/me");
+      const { r, data } = await fetchJson("/ml/api/auth/me");
       if (!r.ok || !data) {
         window.location.href="/ml/login";
         return null;
@@ -525,7 +525,7 @@
   // Backend: loadContas OAuth
   // ===========================
   function buildContasUrl() {
-    const url = new URL(window.location.origin + "/api/meli/contas");
+    const url = new URL(window.location.origin + "/ml/api/meli/contas");
 
     if (state.isMaster) {
       if (state.q) url.searchParams.set("q", state.q);
@@ -581,7 +581,7 @@
   // ✅ NOVO: valida seleção sem depender de /api/meli/current (que pode exigir token ML)
   async function validarSelecaoSemTokenML(expectedId) {
     // /api/meli/contas costuma estar em SKIP no authMiddleware => sempre JSON
-    const { r, data } = await fetchJson("/api/meli/contas");
+    const { r, data } = await fetchJson("/ml/api/meli/contas");
     if (!r.ok || !data || data.ok !== true) {
       throw new Error(`Não foi possível validar seleção (HTTP ${r.status}).`);
     }
@@ -599,7 +599,7 @@
 
   async function selecionarContaOAuth(meli_conta_id) {
     try {
-      const { r, data } = await fetchJson("/api/meli/selecionar", {
+      const { r, data } = await fetchJson("/ml/api/meli/selecionar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ meli_conta_id }),
@@ -634,7 +634,7 @@
 
   async function limparSelecaoOAuth() {
     try {
-      const { r, data } = await fetchJson("/api/meli/limpar-selecao", {
+      const { r, data } = await fetchJson("/ml/api/meli/limpar-selecao", {
         method: "POST",
       });
 

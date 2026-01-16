@@ -223,7 +223,7 @@
   }
 
   async function loadLookups() {
-    const data = await api("/api/admin/vinculos/lookups", { method: "GET" });
+    const data = await api("/ml/api/admin/vinculos/lookups", { method: "GET" });
     empresas = Array.isArray(data.empresas) ? data.empresas : [];
     usuarios = Array.isArray(data.usuarios) ? data.usuarios : [];
     fillSelects();
@@ -232,7 +232,7 @@
   async function loadVinculos() {
     tbody.innerHTML = `<tr><td colspan="6" class="table-empty">Carregando…</td></tr>`;
     try {
-      const data = await api("/api/admin/vinculos", { method: "GET" });
+      const data = await api("/ml/api/admin/vinculos", { method: "GET" });
       all = Array.isArray(data.vinculos) ? data.vinculos : [];
       filtered = [...all];
       applyFilter();
@@ -292,12 +292,12 @@
       const payload = { empresa_id, usuario_id, papel };
 
       if (mode === "create") {
-        await api("/api/admin/vinculos", { method: "POST", body: JSON.stringify(payload) });
+        await api("/ml/api/admin/vinculos", { method: "POST", body: JSON.stringify(payload) });
         showToast("Vínculo criado.");
       } else {
         const oldEmpresa = editingKey?.empresa_id;
         const oldUsuario = editingKey?.usuario_id;
-        await api(`/api/admin/vinculos/${oldEmpresa}/${oldUsuario}`, {
+        await api(`/ml/api/admin/vinculos/${oldEmpresa}/${oldUsuario}`, {
           method: "PUT",
           body: JSON.stringify(payload),
         });
@@ -326,7 +326,7 @@
     if (!confirm(`Remover o vínculo ${label}?`)) return;
 
     try {
-      await api(`/api/admin/vinculos/${empresa_id}/${usuario_id}`, { method: "DELETE" });
+      await api(`/ml/api/admin/vinculos/${empresa_id}/${usuario_id}`, { method: "DELETE" });
       showToast("Vínculo removido.");
       await loadVinculos();
     } catch (e) {

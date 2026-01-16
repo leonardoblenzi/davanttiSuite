@@ -226,7 +226,7 @@
       const text = await f.text();
       const backup = JSON.parse(text);
 
-      const resp = await fetchJson("/api/admin/backup/import.json", {
+      const resp = await fetchJson("/ml/api/admin/backup/import.json", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ backup }),

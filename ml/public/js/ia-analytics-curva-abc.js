@@ -621,7 +621,7 @@
       if (s) base.search = s;
 
       const params = new URLSearchParams(base).toString();
-      const url = `/api/analytics/abc-ml/items?${params}`;
+      const url = `/ml/api/analytics/abc-ml/items?${params}`;
 
       const resp = await fetchWithTimeout(
         url,
@@ -891,7 +891,7 @@
     if (s) base.search = s;
 
     // 1) busca primeira página para descobrir total
-    const p1Url = `/api/analytics/abc-ml/items?${new URLSearchParams(
+    const p1Url = `/ml/api/analytics/abc-ml/items?${new URLSearchParams(
       base
     ).toString()}`;
     const r1 = await fetchWithTimeout(
@@ -916,7 +916,7 @@
 
     // 2) páginas restantes
     for (let p = 2; p <= totalPages; p++) {
-      const url = `/api/analytics/abc-ml/items?${new URLSearchParams({
+      const url = `/ml/api/analytics/abc-ml/items?${new URLSearchParams({
         ...base,
         page: p,
       }).toString()}`;

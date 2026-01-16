@@ -104,7 +104,7 @@
         setLoading(true);
 
         try {
-          const resp = await fetch('/api/auth/login', {
+          const resp = await fetch('/ml/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include', // ✅ garante cookie JWT/ sessão

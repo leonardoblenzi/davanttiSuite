@@ -150,7 +150,7 @@
     tbodyFiles.innerHTML = `<tr><td colspan="3" class="table-empty">Carregando…</td></tr>`;
     tbodyApplied.innerHTML = `<tr><td colspan="3" class="table-empty">Carregando…</td></tr>`;
     try {
-      lastStatus = await api("/api/admin/migracoes/status", { method: "GET" });
+      lastStatus = await api("/ml/api/admin/migracoes/status", { method: "GET" });
       render();
       showToast("Status atualizado.");
     } catch (e) {
@@ -164,7 +164,7 @@
 
   async function previewFile(name) {
     try {
-      const data = await api(`/api/admin/migracoes/file?name=${encodeURIComponent(name)}`, {
+      const data = await api(`/ml/api/admin/migracoes/file?name=${encodeURIComponent(name)}`, {
         method: "GET",
       });
       showModal(`Preview • ${name}`, data.sql || "");
@@ -193,7 +193,7 @@
     btnRun.textContent = "Rodando…";
 
     try {
-      const data = await api("/api/admin/migracoes/run", {
+      const data = await api("/ml/api/admin/migracoes/run", {
         method: "POST",
         body: JSON.stringify({ confirm: "rodar" }),
       });

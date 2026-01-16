@@ -6,10 +6,10 @@
   // Config (ajuste depois pro seu backend real)
   // =========================
   // ✅ Unitário: permite CLONE_NEW_CLOSE_OLD
-  const API_SINGLE = "/api/jardinagem/item";
+  const API_SINGLE = "/ml/api/jardinagem/item";
 
   // ✅ Lote: NÃO permite clone (o bulk.js vai usar)
-  const API_STATUS = (id) => `/api/jardinagem/status/${encodeURIComponent(id)}`;
+  const API_STATUS = (id) => `/ml/api/jardinagem/status/${encodeURIComponent(id)}`;
 
   // =========================
   // Helpers DOM

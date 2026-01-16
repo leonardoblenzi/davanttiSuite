@@ -7,10 +7,10 @@
   // =========================
   // ✅ Lote: NÃO permite CLONE_NEW_CLOSE_OLD
   // ✅ FIX: rota no backend é /api/jardinagem/bulk (não /lote)
-  const API_BULK = "/api/jardinagem/bulk";
+  const API_BULK = "/ml/api/jardinagem/bulk";
 
   // Status por process_id
-  const API_STATUS = (id) => `/api/jardinagem/status/${encodeURIComponent(id)}`;
+  const API_STATUS = (id) => `/ml/api/jardinagem/status/${encodeURIComponent(id)}`;
 
   const DEFAULT_DELAY_MS = 250;
 

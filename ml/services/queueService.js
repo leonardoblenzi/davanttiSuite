@@ -272,7 +272,7 @@ class QueueService {
             return jobFiles.map(file => ({
                 nome: file,
                 tipo: file.includes('_errors') ? 'erros' : file.includes('_metadata') ? 'metadata' : 'resultados',
-                url: `/api/pesquisa-descricao/download/${job_id}/${file}`
+                url: `/ml/api/pesquisa-descricao/download/${job_id}/${file}`
             }));
         } catch (error) {
             return [];

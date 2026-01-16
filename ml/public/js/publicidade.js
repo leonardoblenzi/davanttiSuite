@@ -257,7 +257,7 @@
 
     setLoadingTable(tbody, `Carregando campanhas de ${from} até ${to}…`);
 
-    const url = `/api/publicidade/product-ads/campaigns?date_from=${encodeURIComponent(
+    const url = `/ml/api/publicidade/product-ads/campaigns?date_from=${encodeURIComponent(
       from
     )}&date_to=${encodeURIComponent(to)}`;
 
@@ -516,7 +516,7 @@
     setLoadingTable(tbody, "Carregando itens da campanha…");
 
     const url =
-      `/api/publicidade/product-ads/campaigns/${encodeURIComponent(
+      `/ml/api/publicidade/product-ads/campaigns/${encodeURIComponent(
         campaignId
       )}/items` +
       `?date_from=${encodeURIComponent(from)}&date_to=${encodeURIComponent(
@@ -834,7 +834,7 @@
     setText("rankingPeriod", `Período: ${from} a ${to}`);
     setText("pillRange", `${from} → ${to}`);
 
-    const url = `/api/publicidade/product-ads/metrics/daily?date_from=${encodeURIComponent(
+    const url = `/ml/api/publicidade/product-ads/metrics/daily?date_from=${encodeURIComponent(
       from
     )}&date_to=${encodeURIComponent(to)}`;
 
@@ -1056,7 +1056,7 @@
         const { from, to } = getDateRange();
 
         const url =
-          `/api/publicidade/product-ads/campaigns/${encodeURIComponent(
+          `/ml/api/publicidade/product-ads/campaigns/${encodeURIComponent(
             id
           )}/items/export.csv` +
           `?date_from=${encodeURIComponent(from)}&date_to=${encodeURIComponent(

@@ -25,22 +25,22 @@ const ENSURE_ACCOUNT_DEBUG =
 // No seu index.js, ensureAuth roda ANTES, então aqui é apenas “não exigir conta”.
 const OPEN_PREFIXES = [
   // auth do app (login/cadastro)
-  "/api/auth",
+  "/ml/api/auth",
 
   // páginas necessárias pra escolher/vincular conta
   "/select-conta",
   "/vincular-conta",
 
   // OAuth ML (start/callback/contas/selecionar/limpar)
-  "/api/meli",
+  "/ml/api/meli",
 
   // API de conta (whoami/listar contas etc.)
-  "/api/account",
+  "/ml/api/account",
 
   // utilitários/health (se quiser exigir conta até aqui, remova)
-  "/api/system/health",
-  "/api/system/stats",
-  "/api/health",
+  "/ml/api/system/health",
+  "/ml/api/system/stats",
+  "/ml/api/health",
   "/health",
   "/test-basic",
   "/debug/routes",
@@ -74,7 +74,7 @@ function isOpen(req) {
 
 function isApi(req) {
   const p = getReqPath(req);
-  return p.startsWith("/api/");
+  return p.startsWith("/ml/api/");
 }
 
 function wantsHtml(req) {

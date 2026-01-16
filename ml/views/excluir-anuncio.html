@@ -158,7 +158,7 @@ MLB1122334455"></textarea>
     async function carregarContaAtual() {
       const currentEl = document.getElementById('account-current');
       try {
-        const r = await fetch('/api/account/current', { cache: 'no-store' });
+        const r = await fetch('/ml/api/account/current', { cache: 'no-store' });
         const data = await r.json();
         let shown = 'Não selecionada';
         if (data && (data.ok || data.success)) {
@@ -174,7 +174,7 @@ MLB1122334455"></textarea>
 
     async function trocarConta() {
       try {
-        await fetch('/api/account/clear', { method: 'POST' });
+        await fetch('/ml/api/account/clear', { method: 'POST' });
       } finally {
         window.location.href = '/select-conta';
       }

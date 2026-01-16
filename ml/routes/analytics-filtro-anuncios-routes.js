@@ -176,9 +176,9 @@ function validateRequiredFilters(filters) {
 
 function buildEndpoints(jobId) {
   return {
-    status_url: `/api/analytics/filtro-anuncios/jobs/${jobId}`,
-    items_url: `/api/analytics/filtro-anuncios/jobs/${jobId}/items`,
-    download_csv_url: `/api/analytics/filtro-anuncios/jobs/${jobId}/download.csv`,
+    status_url: `/ml/api/analytics/filtro-anuncios/jobs/${jobId}`,
+    items_url: `/ml/api/analytics/filtro-anuncios/jobs/${jobId}/items`,
+    download_csv_url: `/ml/api/analytics/filtro-anuncios/jobs/${jobId}/download.csv`,
   };
 }
 

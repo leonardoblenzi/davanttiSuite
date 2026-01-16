@@ -5,13 +5,13 @@
   // =========================
   // Config
   // =========================
-  const API_JOBS_CREATE = "/api/analytics/filtro-anuncios/jobs";
+  const API_JOBS_CREATE = "/ml/api/analytics/filtro-anuncios/jobs";
   const API_JOBS_STATUS = (jobId) =>
-    `/api/analytics/filtro-anuncios/jobs/${encodeURIComponent(jobId)}`;
+    `/ml/api/analytics/filtro-anuncios/jobs/${encodeURIComponent(jobId)}`;
   const API_JOBS_ITEMS = (jobId) =>
-    `/api/analytics/filtro-anuncios/jobs/${encodeURIComponent(jobId)}/items`;
+    `/ml/api/analytics/filtro-anuncios/jobs/${encodeURIComponent(jobId)}/items`;
   const API_JOBS_CSV = (jobId) =>
-    `/api/analytics/filtro-anuncios/jobs/${encodeURIComponent(
+    `/ml/api/analytics/filtro-anuncios/jobs/${encodeURIComponent(
       jobId
     )}/download.csv`;
 

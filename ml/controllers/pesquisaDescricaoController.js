@@ -167,8 +167,8 @@ class PesquisaDescricaoController {
                 inicio_estimado: job.inicio_estimado,
                 fim_estimado: job.fim_estimado,
                 urls: {
-                    status: `/api/pesquisa-descricao/status/${job.job_id}`,
-                    download: `/api/pesquisa-descricao/download/${job.job_id}`,
+                    status: `/ml/api/pesquisa-descricao/status/${job.job_id}`,
+                    download: `/ml/api/pesquisa-descricao/download/${job.job_id}`,
                     dashboard: `/dashboard/jobs/${job.job_id}`
                 },
                 message: 'Processamento iniciado em background. Use o job_id para acompanhar o progresso.'
@@ -393,7 +393,7 @@ class PesquisaDescricaoController {
                 novo_job_id: resultado.novo_job_id,
                 mlbs_reprocessar: resultado.mlbs_reprocessar,
                 urls: {
-                    status_novo_job: `/api/pesquisa-descricao/status/${resultado.novo_job_id}`,
+                    status_novo_job: `/ml/api/pesquisa-descricao/status/${resultado.novo_job_id}`,
                     dashboard_novo_job: `/dashboard/jobs/${resultado.novo_job_id}`
                 }
             });

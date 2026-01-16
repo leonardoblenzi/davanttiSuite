@@ -6,7 +6,7 @@ const PublicidadeController = require("../controllers/PublicidadeController");
 
 // ==========================================
 // Product Ads – Campanhas, Itens, CSV, Gráfico
-// Prefixo no index.js: app.use('/api/publicidade', publicidadeRoutes);
+// Prefixo no index.js: app.use('/ml/api/publicidade', publicidadeRoutes);
 // ==========================================
 
 // Campanhas + métricas agregadas

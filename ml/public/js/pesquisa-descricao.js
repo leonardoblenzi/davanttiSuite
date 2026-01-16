@@ -354,7 +354,7 @@ function renderJobCard(job) {
 
       <div class="actions">
         <button class="btn btn-primary" onclick="verDetalhesJob('${id}')">Detalhes</button>
-        ${status==='concluido' ? `<a href="/api/pesquisa-descricao/download/${id}" class="btn btn-success">Download Resultados</a>` : ''}
+        ${status==='concluido' ? `<a href="/ml/api/pesquisa-descricao/download/${id}" class="btn btn-success">Download Resultados</a>` : ''}
       </div>
     </div>
   `;
@@ -455,8 +455,8 @@ async function verDetalhesJob(jobId) {
       <p><strong>Progresso:</strong> ${prog}%</p>
       <p><strong>Tempo:</strong> ${tempo}</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <a href="/api/pesquisa-descricao/download/${jobId}?formato=txt" class="btn btn-success">📥 Download (.txt)</a>
-        <a href="/api/pesquisa-descricao/download/${jobId}" class="btn btn-outline">JSONL</a>
+        <a href="/ml/api/pesquisa-descricao/download/${jobId}?formato=txt" class="btn btn-success">📥 Download (.txt)</a>
+        <a href="/ml/api/pesquisa-descricao/download/${jobId}" class="btn btn-outline">JSONL</a>
         <button class="btn btn-secondary" onclick="fecharModalDetalhes()">Fechar</button>
       </div>
     `;
@@ -557,7 +557,7 @@ function exibirResultados(data) {
         </div>
         <div style="margin-top:30px;">
           <p style="color:#666;margin-bottom:20px;">📋 Para ver os resultados detalhados, faça o download do arquivo.</p>
-          <button class="btn btn-success" onclick="window.location.href='/api/pesquisa-descricao/download/'+(window.currentJobId||'')+'?formato=txt'">📥 Download Resultados Completos</button>
+          <button class="btn btn-success" onclick="window.location.href='/ml/api/pesquisa-descricao/download/'+(window.currentJobId||'')+'?formato=txt'">📥 Download Resultados Completos</button>
         </div>
       </div>
     `;
@@ -577,7 +577,7 @@ function exportarResultados() { alert('🚧 Funcionalidade de exportação em de
 // ===== Controles do sistema =====
 async function controlarSistema(acao) {
   try {
-    const endpoint = (acao === 'pausar') ? '/api/pesquisa-descricao/pausar' : '/api/pesquisa-descricao/retomar';
+    const endpoint = (acao === 'pausar') ? '/ml/api/pesquisa-descricao/pausar' : '/ml/api/pesquisa-descricao/retomar';
     const resp = await fetch(endpoint, { method: 'POST' });
     const data = await resp.json();
     if (data.ok || data.success) {

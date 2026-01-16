@@ -373,7 +373,7 @@ async function carregarDashboard() {
         period.today ||
         `${monthKey}-${String(period.day_of_month || 1).padStart(2, "0")}`;
 
-      const urlAds = `/api/publicidade/product-ads/metrics/daily?date_from=${encodeURIComponent(
+      const urlAds = `/ml/api/publicidade/product-ads/metrics/daily?date_from=${encodeURIComponent(
         firstDay
       )}&date_to=${encodeURIComponent(today)}`;
       const ra = await fetch(urlAds, {

@@ -78,7 +78,7 @@
     aiDiagBox: $("aiDiagBox"),
   };
 
-  const API_BASE = "/api/analise-anuncios";
+  const API_BASE = "/ml/api/analise-anuncios";
   let lastPayload = null;
 
   // guarda o último mlb/days/zip carregado no overview
@@ -587,7 +587,7 @@
       const txt = await r.text().catch(() => "");
       const looksHtml = txt && txt.toLowerCase().includes("<html");
       const maybeRedirected =
-        r.url && !r.url.includes("/api/analise-anuncios/");
+        r.url && !r.url.includes("/ml/api/analise-anuncios/");
 
       if (looksHtml || maybeRedirected) {
         throw new Error(

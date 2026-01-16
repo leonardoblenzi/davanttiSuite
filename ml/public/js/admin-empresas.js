@@ -172,7 +172,7 @@
   async function loadEmpresas() {
     tbody.innerHTML = `<tr><td colspan="6" class="table-empty">Carregando…</td></tr>`;
     try {
-      const data = await api("/api/admin/empresas", { method: "GET" });
+      const data = await api("/ml/api/admin/empresas", { method: "GET" });
       all = Array.isArray(data.empresas) ? data.empresas : [];
       filtered = [...all];
       applyFilter();
@@ -220,13 +220,13 @@
       const payload = { nome };
 
       if (mode === "create") {
-        await api("/api/admin/empresas", {
+        await api("/ml/api/admin/empresas", {
           method: "POST",
           body: JSON.stringify(payload),
         });
         showToast("Empresa criada.");
       } else {
-        await api(`/api/admin/empresas/${editingId}`, {
+        await api(`/ml/api/admin/empresas/${editingId}`, {
           method: "PUT",
           body: JSON.stringify(payload),
         });
@@ -251,7 +251,7 @@
     if (!confirm(`Remover a empresa ${label}?\n\nObs: Só é permitido se não tiver usuários/contas ML vinculados.`)) return;
 
     try {
-      await api(`/api/admin/empresas/${id}`, { method: "DELETE" });
+      await api(`/ml/api/admin/empresas/${id}`, { method: "DELETE" });
       showToast("Empresa removida.");
       await loadEmpresas();
     } catch (e) {

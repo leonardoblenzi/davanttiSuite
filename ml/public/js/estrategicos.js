@@ -335,7 +335,7 @@
     }
 
     try {
-      const data = await fetchJSONAny(["/api/estrategicos"], { method: "GET" });
+      const data = await fetchJSONAny(["/ml/api/estrategicos"], { method: "GET" });
       rows = Array.isArray(data?.items || data) ? data.items || data : [];
 
       // mantém seleção consistente: remove MLBs que não existem mais
@@ -571,7 +571,7 @@
     try {
       if (row.id != null) {
         await fetchJSON(
-          `/api/estrategicos/${encodeURIComponent(String(row.id))}`,
+          `/ml/api/estrategicos/${encodeURIComponent(String(row.id))}`,
           {
             method: "PUT",
             body: JSON.stringify(payload),
@@ -583,7 +583,7 @@
       }
 
       // fallback
-      await fetchJSON("/api/estrategicos", {
+      await fetchJSON("/ml/api/estrategicos", {
         method: "POST",
         body: JSON.stringify({ mlb: row.mlb, ...payload }),
       });
@@ -616,8 +616,8 @@
     const id = row.id != null ? String(row.id).trim() : "";
 
     const candidates = [
-      mlb ? `/api/estrategicos/${encodeURIComponent(mlb)}/sync` : null,
-      id ? `/api/estrategicos/id/${encodeURIComponent(id)}/sync` : null,
+      mlb ? `/ml/api/estrategicos/${encodeURIComponent(mlb)}/sync` : null,
+      id ? `/ml/api/estrategicos/id/${encodeURIComponent(id)}/sync` : null,
     ].filter(Boolean);
 
     if (!candidates.length) {
@@ -662,7 +662,7 @@
       return;
 
     try {
-      await fetchJSON(`/api/estrategicos/${encodeURIComponent(mlb)}`, {
+      await fetchJSON(`/ml/api/estrategicos/${encodeURIComponent(mlb)}`, {
         method: "DELETE",
       });
 
@@ -763,7 +763,7 @@
       return;
 
     try {
-      await fetchJSON("/api/estrategicos/apply", {
+      await fetchJSON("/ml/api/estrategicos/apply", {
         method: "POST",
         body: JSON.stringify({
           items,
@@ -899,7 +899,7 @@
       if (uploadStatus)
         uploadStatus.textContent = `Enviando ${filtered.length} itens...`;
 
-      const resp = await fetchJSON("/api/estrategicos/replace", {
+      const resp = await fetchJSON("/ml/api/estrategicos/replace", {
         method: "POST",
         body: JSON.stringify({
           items: filtered,
@@ -979,7 +979,7 @@
 
     try {
       // Se selecionou todos, manda mlbs[] (mais seguro que all=true)
-      const resp = await fetchJSON("/api/estrategicos/bulk/delete", {
+      const resp = await fetchJSON("/ml/api/estrategicos/bulk/delete", {
         method: "POST",
         body: JSON.stringify({
           mlbs: selected,
@@ -1022,7 +1022,7 @@
     }
 
     try {
-      const resp = await fetchJSON("/api/estrategicos/bulk/sync", {
+      const resp = await fetchJSON("/ml/api/estrategicos/bulk/sync", {
         method: "POST",
         body: JSON.stringify({ mlbs: selected }),
       });
@@ -1144,7 +1144,7 @@
     for (let i = 0; i < toInsert.length; i++) {
       const mlb = toInsert[i];
       try {
-        await fetchJSON("/api/estrategicos", {
+        await fetchJSON("/ml/api/estrategicos", {
           method: "POST",
           body: JSON.stringify({ mlb }),
         });

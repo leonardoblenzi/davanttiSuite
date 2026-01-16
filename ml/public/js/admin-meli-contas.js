@@ -192,7 +192,7 @@
   async function load() {
     tbody.innerHTML = `<tr><td colspan="9" class="table-empty">Carregando…</td></tr>`;
     try {
-      const data = await api("/api/admin/meli-contas", { method: "GET" });
+      const data = await api("/ml/api/admin/meli-contas", { method: "GET" });
       all = Array.isArray(data.contas) ? data.contas : [];
       filtered = [...all];
       applyFilter();
@@ -267,13 +267,13 @@
 
     try {
       if (mode === "create") {
-        await api("/api/admin/meli-contas", {
+        await api("/ml/api/admin/meli-contas", {
           method: "POST",
           body: JSON.stringify({ empresa_id, meli_user_id, apelido, site_id, status }),
         });
         showToast("Conta criada.");
       } else {
-        await api(`/api/admin/meli-contas/${editingId}`, {
+        await api(`/ml/api/admin/meli-contas/${editingId}`, {
           method: "PUT",
           body: JSON.stringify({ apelido, status }),
         });
@@ -301,7 +301,7 @@
     if (!confirm(`Remover conta ${label}?\n\nObs: pode falhar se houver tokens/refs dependentes.`)) return;
 
     try {
-      await api(`/api/admin/meli-contas/${id}`, { method: "DELETE" });
+      await api(`/ml/api/admin/meli-contas/${id}`, { method: "DELETE" });
       showToast("Conta removida.");
       await load();
     } catch (e) {

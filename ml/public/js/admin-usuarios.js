@@ -197,7 +197,7 @@
 
   async function loadMe() {
     try {
-      const data = await api("/api/auth/me", { method: "GET" });
+      const data = await api("/ml/api/auth/me", { method: "GET" });
 
       const logged = data?.logged === true || !!data?.user;
       if (!logged) {
@@ -412,7 +412,7 @@
 
     fEmpresa.innerHTML = `<option value="">Carregando…</option>`;
     try {
-      const data = await api("/api/admin/empresas", { method: "GET" });
+      const data = await api("/ml/api/admin/empresas", { method: "GET" });
       const list = Array.isArray(data.empresas) ? data.empresas : [];
       empresasCache = list;
       empresasLoaded = true;
@@ -570,7 +570,7 @@
   async function loadUsers() {
     tbody.innerHTML = `<tr><td colspan="7" class="table-empty">Carregando…</td></tr>`;
     try {
-      const data = await api("/api/admin/usuarios", { method: "GET" });
+      const data = await api("/ml/api/admin/usuarios", { method: "GET" });
       allUsers = Array.isArray(data.usuarios) ? data.usuarios : [];
       filtered = [...allUsers];
       applyFilter();
@@ -723,13 +723,13 @@
 
     try {
       if (mode === "create") {
-        await api("/api/admin/usuarios", {
+        await api("/ml/api/admin/usuarios", {
           method: "POST",
           body: JSON.stringify(payload),
         });
         showToast("Usuário criado e vinculado.");
       } else {
-        await api(`/api/admin/usuarios/${editingId}`, {
+        await api(`/ml/api/admin/usuarios/${editingId}`, {
           method: "PUT",
           body: JSON.stringify(payload),
         });
@@ -774,7 +774,7 @@
     if (!confirm(`Remover o usuário ${label}?`)) return;
 
     try {
-      await api(`/api/admin/usuarios/${id}`, { method: "DELETE" });
+      await api(`/ml/api/admin/usuarios/${id}`, { method: "DELETE" });
       showToast("Usuário removido.");
       await loadUsers();
     } catch (e) {

@@ -52,7 +52,7 @@
   <script>
     document.getElementById('btn-logout')?.addEventListener('click', async () => {
       try {
-        await fetch('/api/auth/logout', { method: 'POST' });
+        await fetch('/ml/api/auth/logout', { method: 'POST' });
       } catch (_) {}
       window.location.href = '/login';
     });

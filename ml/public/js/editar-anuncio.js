@@ -346,10 +346,10 @@
 
     // tenta alguns endpoints comuns (você ajusta conforme seus routes reais)
     const candidates = [
-      `/api/anuncios/${encodeURIComponent(mlb)}`,
-      `/api/items/${encodeURIComponent(mlb)}`,
-      `/api/ml/items/${encodeURIComponent(mlb)}`,
-      `/api/mercadolivre/items/${encodeURIComponent(mlb)}`,
+      `/ml/api/anuncios/${encodeURIComponent(mlb)}`,
+      `/ml/api/items/${encodeURIComponent(mlb)}`,
+      `/ml/api/ml/items/${encodeURIComponent(mlb)}`,
+      `/ml/api/mercadolivre/items/${encodeURIComponent(mlb)}`,
       `/items/${encodeURIComponent(mlb)}`,
     ];
 
@@ -510,9 +510,9 @@
     // tenta endpoint de diagnóstico (se existir), senão faz client-side
     const mlb = state.mlb;
     const candidates = [
-      `/api/anuncios/${encodeURIComponent(mlb)}/diagnostico`,
-      `/api/items/${encodeURIComponent(mlb)}/diagnostico`,
-      `/api/ml/items/${encodeURIComponent(mlb)}/diagnostico`,
+      `/ml/api/anuncios/${encodeURIComponent(mlb)}/diagnostico`,
+      `/ml/api/items/${encodeURIComponent(mlb)}/diagnostico`,
+      `/ml/api/ml/items/${encodeURIComponent(mlb)}/diagnostico`,
     ];
 
     const res = await getJSONAny(candidates);

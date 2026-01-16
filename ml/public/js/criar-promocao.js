@@ -75,9 +75,9 @@ async function getJSONAny(paths) {
 
 // Rotas alternativas — usuários/promos
 const usersPaths = () => [
-  "/api/promocoes/users",
-  "/api/promocao/users",
-  "/api/promotions/users",
+  "/ml/api/promocoes/users",
+  "/ml/api/promocao/users",
+  "/ml/api/promotions/users",
 ];
 
 // Rotas alternativas — itens de uma promoção
@@ -87,17 +87,17 @@ const itemsPaths = (promotionId, type, qs) => {
   }`;
   const pid = encodeURIComponent(promotionId);
   return [
-    `/api/promocoes/promotions/${pid}/items${suffix}`,
-    `/api/promocao/promotions/${pid}/items${suffix}`,
-    `/api/promotions/promotions/${pid}/items${suffix}`,
+    `/ml/api/promocoes/promotions/${pid}/items${suffix}`,
+    `/ml/api/promocao/promotions/${pid}/items${suffix}`,
+    `/ml/api/promotions/promotions/${pid}/items${suffix}`,
   ];
 };
 
 // Rotas para resolver offer_id / candidate_id via backend (quando necessário)
 const offerIdsPaths = (mlb) => [
-  `/api/promocoes/items/${encodeURIComponent(mlb)}/offer-ids`,
-  `/api/promocao/items/${encodeURIComponent(mlb)}/offer-ids`,
-  `/api/promotions/items/${encodeURIComponent(mlb)}/offer-ids`,
+  `/ml/api/promocoes/items/${encodeURIComponent(mlb)}/offer-ids`,
+  `/ml/api/promocao/items/${encodeURIComponent(mlb)}/offer-ids`,
+  `/ml/api/promotions/items/${encodeURIComponent(mlb)}/offer-ids`,
 ];
 
 // =====================================================
@@ -892,9 +892,9 @@ const ITEM_PROMO_TYPES = new Set([
 ]);
 
 const itemPromosPaths = (mlb) => [
-  `/api/promocoes/items/${encodeURIComponent(mlb)}`,
-  `/api/promotions/items/${encodeURIComponent(mlb)}`,
-  `/api/promocao/items/${encodeURIComponent(mlb)}`,
+  `/ml/api/promocoes/items/${encodeURIComponent(mlb)}`,
+  `/ml/api/promotions/items/${encodeURIComponent(mlb)}`,
+  `/ml/api/promocao/items/${encodeURIComponent(mlb)}`,
 ];
 
 async function buscarCardsDoItem(mlb) {
@@ -1375,12 +1375,12 @@ function destacarCardSelecionado() {
 async function filtrarCardsPorMLB(mlb) {
   try {
     const resp = await getJSONAny([
-      `/api/promocoes/items/${encodeURIComponent(mlb)}/promotions`,
-      `/api/promocao/items/${encodeURIComponent(mlb)}/promotions`,
-      `/api/promotions/items/${encodeURIComponent(mlb)}/promotions`,
-      `/api/promocoes/items/${encodeURIComponent(mlb)}`,
-      `/api/promocao/items/${encodeURIComponent(mlb)}`,
-      `/api/promotions/items/${encodeURIComponent(mlb)}`,
+      `/ml/api/promocoes/items/${encodeURIComponent(mlb)}/promotions`,
+      `/ml/api/promocao/items/${encodeURIComponent(mlb)}/promotions`,
+      `/ml/api/promotions/items/${encodeURIComponent(mlb)}/promotions`,
+      `/ml/api/promocoes/items/${encodeURIComponent(mlb)}`,
+      `/ml/api/promocao/items/${encodeURIComponent(mlb)}`,
+      `/ml/api/promotions/items/${encodeURIComponent(mlb)}`,
     ]);
 
     const promos = extractList(resp);
@@ -1829,12 +1829,12 @@ function renderPaginacao() {
 async function montarItemRapido(mlb) {
   // 1) Busca todas as promoções do item e localiza a campanha selecionada
   const resp = await getJSONAny([
-    `/api/promocoes/items/${encodeURIComponent(mlb)}/promotions`,
-    `/api/promocao/items/${encodeURIComponent(mlb)}/promotions`,
-    `/api/promotions/items/${encodeURIComponent(mlb)}/promotions`,
-    `/api/promocoes/items/${encodeURIComponent(mlb)}`,
-    `/api/promocao/items/${encodeURIComponent(mlb)}`,
-    `/api/promotions/items/${encodeURIComponent(mlb)}`,
+    `/ml/api/promocoes/items/${encodeURIComponent(mlb)}/promotions`,
+    `/ml/api/promocao/items/${encodeURIComponent(mlb)}/promotions`,
+    `/ml/api/promotions/items/${encodeURIComponent(mlb)}/promotions`,
+    `/ml/api/promocoes/items/${encodeURIComponent(mlb)}`,
+    `/ml/api/promocao/items/${encodeURIComponent(mlb)}`,
+    `/ml/api/promotions/items/${encodeURIComponent(mlb)}`,
   ]);
 
   const promos = extractList(resp);
@@ -1847,8 +1847,8 @@ async function montarItemRapido(mlb) {
   let b = null;
   try {
     b = await getJSONAny([
-      `/api/items/brief?ids=${encodeURIComponent(mlb)}`,
-      `/api/items/basic?ids=${encodeURIComponent(mlb)}`,
+      `/ml/api/items/brief?ids=${encodeURIComponent(mlb)}`,
+      `/ml/api/items/basic?ids=${encodeURIComponent(mlb)}`,
     ]);
     if (Array.isArray(b)) {
       const hit = b.find((x) => x.id === mlb || x?.body?.id === mlb);
@@ -2183,7 +2183,7 @@ async function aplicarUnico(mlb, opts = {}) {
     // função auxiliar para enviar
     const doPost = async (pl) => {
       const r = await fetch(
-        `/api/promocoes/items/${encodeURIComponent(mlb)}/apply`,
+        `/ml/api/promocoes/items/${encodeURIComponent(mlb)}/apply`,
         {
           method: "POST",
           headers: {
@@ -2383,7 +2383,7 @@ async function aplicarUnicoRemote(mlb, opts = {}) {
 
     const doPost = async (pl) => {
       const r = await fetch(
-        `/api/promocoes/items/${encodeURIComponent(mlb)}/apply`,
+        `/ml/api/promocoes/items/${encodeURIComponent(mlb)}/apply`,
         {
           method: "POST",
           headers: {
@@ -2593,7 +2593,7 @@ async function aplicarTodosFiltrados() {
       options.expected_total = expected_total;
 
     const res = await fetch(
-      `/api/promocoes/promotions/${encodeURIComponent(
+      `/ml/api/promocoes/promotions/${encodeURIComponent(
         state.selectedCard.id
       )}/apply-bulk`,
       {

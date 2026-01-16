@@ -261,7 +261,7 @@
   <script>
     (async () => {
       try {
-        const r = await fetch("/api/auth/me", { credentials: "include", cache: "no-store" });
+        const r = await fetch("/ml/api/auth/me", { credentials: "include", cache: "no-store" });
         const data = await r.json().catch(() => null);
 
         const nivel =
