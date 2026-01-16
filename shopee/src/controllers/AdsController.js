@@ -1,0 +1,786 @@
+const ShopeeAdsService = require("../services/ShopeeAdsService");
+const { resolveShop } = require("../utils/resolveShop");
+const prisma = require("../config/db");
+const AuthService = require("../services/ShopeeAuthService"); // ajuste o caminho/nome real
+function getShopeeErrData(e) {
+  return e?.response?.data || e?.shopee || null;
+}
+
+function isInvalidAccessToken(e) {
+  const data = getShopeeErrData(e);
+  const err = String(data?.error || "").toLowerCase();
+  return err === "invalid_acceess_token" || err === "invalid_access_token";
+}
+
+async function getDbTokenRow(dbShopId) {
+  return prisma.oAuthToken.findUnique({
+    where: { shopId: Number(dbShopId) },
+    select: {
+      accessToken: true,
+      accessTokenExpiresAt: true,
+    },
+  });
+}
+
+async function refreshAndReloadAccessToken({ dbShopId, shopeeShopId }) {
+  await AuthService.refreshAccessToken({ shopId: String(shopeeShopId) });
+  const refreshed = await getDbTokenRow(dbShopId);
+  return refreshed?.accessToken || null;
+}
+
+async function callAdsWithAutoRefresh({ shop, call }) {
+  const tokenRow = await getDbTokenRow(shop.id);
+  const token = tokenRow?.accessToken || null;
+
+  if (!token) {
+    const err = new Error("Loja sem access_token. Conecte a loja novamente.");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  try {
+    return await call(token);
+  } catch (e) {
+    if (!isInvalidAccessToken(e)) throw e;
+
+    // refresh + retry 1x
+    const newToken = await refreshAndReloadAccessToken({
+      dbShopId: shop.id,
+      shopeeShopId: shop.shopId,
+    });
+
+    if (!newToken) throw e;
+    return await call(newToken);
+  }
+}
+
+function toShopeeDate(iso) {
+  const [y, m, d] = String(iso || "").split("-");
+  if (!y || !m || !d) return null;
+  return `${d}-${m}-${y}`;
+}
+
+function isoDayFromShopee(ddmmyyyy) {
+  const [d, m, y] = String(ddmmyyyy || "").split("-");
+  if (!y || !m || !d) return null;
+  return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+}
+
+async function getShopAccessToken(dbShopId) {
+  const tokenRow = await prisma.oAuthToken.findUnique({
+    where: { shopId: Number(dbShopId) },
+    select: { accessToken: true },
+  });
+  return tokenRow?.accessToken || null;
+}
+
+function chunk(arr, size) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+async function balance(req, res, next) {
+  try {
+    const shop = await resolveShop(req, req.params.shopId);
+
+    const raw = await callAdsWithAutoRefresh({
+      shop,
+      call: (accessToken) =>
+        ShopeeAdsService.get_total_balance({
+          accessToken,
+          shopId: shop.shopId,
+        }),
+    });
+
+    return res.json(raw);
+  } catch (e) {
+    const data = getShopeeErrData(e);
+    if (isInvalidAccessToken(e)) {
+      return res.status(401).json({
+        error: {
+          message: "Token Shopee inválido/expirado. Refaça a conexão da loja.",
+          details: data,
+        },
+      });
+    }
+    const status = e?.response?.status || e?.statusCode || 500;
+    const details = getShopeeErrData(e);
+
+    if (status === 401 || status === 403) {
+      return res.status(status).json({
+        error: {
+          message:
+            "Shopee recusou o token de Ads. Refaça a conexão da loja (ou aguarde refresh).",
+          details,
+        },
+      });
+    }
+
+    if (e?.statusCode) {
+      return res.status(e.statusCode).json({ error: { message: e.message } });
+    }
+
+    return next(e);
+  }
+}
+
+async function dailyPerformance(req, res, next) {
+  try {
+    const shop = await resolveShop(req, req.params.shopId);
+    const accessToken = await getShopAccessToken(shop.id);
+    if (!accessToken) {
+      return res.status(400).json({
+        error: {
+          message: "Loja sem access_token. Conecte a loja novamente.",
+        },
+      });
+    }
+
+    const { dateFrom, dateTo } = req.query;
+    const startDate = toShopeeDate(dateFrom);
+    const endDate = toShopeeDate(dateTo);
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        error: { message: "dateFrom/dateTo inválidos. Use YYYY-MM-DD." },
+      });
+    }
+
+    const raw = await ShopeeAdsService.get_all_cpc_ads_daily_performance({
+      accessToken,
+      shopId: shop.shopId,
+      startDate,
+      endDate,
+    });
+
+    const rows = Array.isArray(raw?.response) ? raw.response : [];
+    const series = rows.map((r) => ({
+      date: isoDayFromShopee(r.date),
+      impression: r.impression ?? 0,
+      clicks: r.clicks ?? 0,
+      expense: r.expense ?? 0,
+      direct_gmv: r.direct_gmv ?? 0,
+      broad_gmv: r.broad_gmv ?? 0,
+      direct_order: r.direct_order ?? 0,
+      broad_order: r.broad_order ?? 0,
+      ctr: r.ctr ?? 0,
+      direct_roas: r.direct_roas ?? 0,
+      broad_roas: r.broad_roas ?? 0,
+    }));
+
+    const totals = series.reduce(
+      (acc, x) => {
+        acc.impression += x.impression;
+        acc.clicks += x.clicks;
+        acc.expense += x.expense;
+        acc.direct_gmv += x.direct_gmv;
+        acc.broad_gmv += x.broad_gmv;
+        acc.direct_order += x.direct_order;
+        acc.broad_order += x.broad_order;
+        return acc;
+      },
+      {
+        impression: 0,
+        clicks: 0,
+        expense: 0,
+        direct_gmv: 0,
+        broad_gmv: 0,
+        direct_order: 0,
+        broad_order: 0,
+      }
+    );
+
+    res.json({
+      request_id: raw?.request_id,
+      warning: raw?.warning,
+      error: raw?.error || "",
+      message: raw?.message,
+      response: { series, totals },
+    });
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function listCampaignIds(req, res, next) {
+  try {
+    const shop = await resolveShop(req, req.params.shopId);
+    const accessToken = await getShopAccessToken(shop.id);
+    if (!accessToken) {
+      return res.status(400).json({
+        error: {
+          message: "Loja sem access_token. Conecte a loja novamente.",
+        },
+      });
+    }
+
+    const adType = String(req.query.adType ?? ""); // "" = todos
+    const raw = await ShopeeAdsService.get_product_level_campaign_id_list({
+      accessToken,
+      shopId: shop.shopId,
+      adType,
+      offset: Number(req.query.offset || 0),
+      limit: Number(req.query.limit || 5000),
+    });
+
+    res.json(raw);
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function campaignsDailyPerformance(req, res, next) {
+  try {
+    const shop = await resolveShop(req, req.params.shopId);
+    const accessToken = await getShopAccessToken(shop.id);
+    if (!accessToken) {
+      return res.status(400).json({
+        error: {
+          message: "Loja sem access_token. Conecte a loja novamente.",
+        },
+      });
+    }
+
+    const { dateFrom, dateTo } = req.query;
+    const startDate = toShopeeDate(dateFrom);
+    const endDate = toShopeeDate(dateTo);
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        error: { message: "dateFrom/dateTo inválidos. Use YYYY-MM-DD." },
+      });
+    }
+
+    const adType = String(req.query.adType ?? ""); // "" = todos
+
+    // 1) pega todos os campaign ids
+    const idsResp = await ShopeeAdsService.get_product_level_campaign_id_list({
+      accessToken,
+      shopId: shop.shopId,
+      adType,
+      offset: 0,
+      limit: 5000,
+    });
+
+    const campaignList = idsResp?.response?.campaign_list || [];
+    const campaignIds = campaignList.map((c) => c.campaign_id).filter(Boolean);
+
+    if (!campaignIds.length) {
+      return res.json({
+        request_id: idsResp?.request_id,
+        error: "",
+        response: {
+          campaigns: [],
+          seriesByCampaignId: {},
+        },
+      });
+    }
+
+    // 2) busca performance em lotes (max 100)
+    const batches = chunk(campaignIds, 100);
+    const rawParts = [];
+
+    for (const batch of batches) {
+      const part =
+        await ShopeeAdsService.get_product_campaign_daily_performance({
+          accessToken,
+          shopId: shop.shopId,
+          startDate,
+          endDate,
+          campaignIdList: batch,
+        });
+      rawParts.push(part);
+    }
+
+    // 3) normaliza: uma linha por campanha, e série diária por campanha
+    const campaigns = [];
+    const seriesByCampaignId = {}; // { [campaignId]: [{date,...metrics}] }
+
+    for (const raw of rawParts) {
+      const resp = raw?.response;
+
+      // ✅ Aceita response como array OU objeto
+      const blocks = Array.isArray(resp) ? resp : resp ? [resp] : [];
+
+      for (const shopBlock of blocks) {
+        const cl = Array.isArray(shopBlock?.campaign_list)
+          ? shopBlock.campaign_list
+          : [];
+
+        for (const c of cl) {
+          const campaignId = String(c.campaign_id);
+          const adType = c.ad_type || null;
+          const placement = c.campaign_placement || null;
+          const name = c.ad_name || null;
+
+          const metricsList = Array.isArray(c.metrics_list)
+            ? c.metrics_list
+            : [];
+          const series = metricsList.map((m) => ({
+            date: isoDayFromShopee(m.date),
+            impression: m.impression ?? 0,
+            clicks: m.clicks ?? 0,
+            expense: m.expense ?? 0,
+            direct_gmv: m.direct_gmv ?? 0,
+            broad_gmv: m.broad_gmv ?? 0,
+            direct_order: m.direct_order ?? 0,
+            broad_order: m.broad_order ?? 0,
+            direct_roi: m.direct_roi ?? 0,
+            broad_roi: m.broad_roi ?? 0,
+            direct_cir: m.direct_cir ?? 0,
+            broad_cir: m.broad_cir ?? 0,
+            direct_cr: m.direct_cr ?? 0,
+            cr: m.cr ?? 0,
+            cpc: m.cpc ?? 0,
+          }));
+
+          seriesByCampaignId[campaignId] = (
+            seriesByCampaignId[campaignId] || []
+          ).concat(series);
+
+          const totals = series.reduce(
+            (acc, x) => {
+              acc.impression += x.impression;
+              acc.clicks += x.clicks;
+              acc.expense += x.expense;
+              acc.direct_gmv += x.direct_gmv;
+              acc.broad_gmv += x.broad_gmv;
+              acc.direct_order += x.direct_order;
+              acc.broad_order += x.broad_order;
+              return acc;
+            },
+            {
+              impression: 0,
+              clicks: 0,
+              expense: 0,
+              direct_gmv: 0,
+              broad_gmv: 0,
+              direct_order: 0,
+              broad_order: 0,
+            }
+          );
+
+          campaigns.push({
+            campaign_id: campaignId,
+            ad_type: adType,
+            campaign_placement: placement,
+            ad_name: name,
+            metrics: totals,
+          });
+        }
+      }
+    }
+
+    res.json({
+      request_id: rawParts?.[0]?.request_id,
+      warning: rawParts?.[0]?.warning,
+      error: rawParts?.[0]?.error || "",
+      response: {
+        campaigns,
+        seriesByCampaignId,
+      },
+    });
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function campaignSettings(req, res, next) {
+  try {
+    const shop = await resolveShop(req, req.params.shopId);
+    const accessToken = await getShopAccessToken(shop.id);
+    if (!accessToken) {
+      return res.status(400).json({
+        error: {
+          message: "Loja sem access_token. Conecte a loja novamente.",
+        },
+      });
+    }
+
+    const campaignIdsRaw = String(req.query.campaignIds || "").trim();
+    if (!campaignIdsRaw) {
+      return res
+        .status(400)
+        .json({ error: { message: "campaignIds é obrigatório (csv)." } });
+    }
+
+    const campaignIdList = campaignIdsRaw
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean);
+
+    if (campaignIdList.length > 100) {
+      return res
+        .status(400)
+        .json({ error: { message: "Máximo 100 campaignIds por chamada." } });
+    }
+
+    const infoTypesRaw = String(req.query.infoTypes || "1,2,3,4");
+    const infoTypeList = infoTypesRaw
+      .split(",")
+      .map((x) => Number(x.trim()))
+      .filter((x) => Number.isFinite(x));
+
+    if (!infoTypeList.length) {
+      return res
+        .status(400)
+        .json({ error: { message: "infoTypes inválido." } });
+    }
+
+    const raw = await ShopeeAdsService.get_product_level_campaign_setting_info({
+      accessToken,
+      shopId: shop.shopId,
+      infoTypeList,
+      campaignIdList,
+    });
+
+    // Normalização leve: ids como string, timestamps -> ISO (se quiser)
+    const campaigns = (raw?.response?.campaign_list || []).map((c) => {
+      const common = c.common_info || {};
+      const duration = common.campaign_duration || {};
+
+      return {
+        campaign_id: String(c.campaign_id),
+        common_info: {
+          ad_type: common.ad_type || null,
+          ad_name: common.ad_name || null,
+          campaign_status: common.campaign_status || null,
+          bidding_method: common.bidding_method || null,
+          campaign_placement: common.campaign_placement || null,
+          campaign_budget: common.campaign_budget ?? null,
+          campaign_duration: {
+            start_time: duration.start_time ?? null,
+            end_time: duration.end_time ?? null,
+          },
+          item_id_list: Array.isArray(common.item_id_list)
+            ? common.item_id_list.map((id) => String(id))
+            : [],
+        },
+        manual_bidding_info: c.manual_bidding_info || null,
+        auto_bidding_info: c.auto_bidding_info || null,
+        auto_product_ads_info: Array.isArray(c.auto_product_ads_info)
+          ? c.auto_product_ads_info.map((p) => ({
+              product_name: p.product_name || null,
+              status: p.status || null,
+              item_id: p.item_id != null ? String(p.item_id) : null,
+            }))
+          : [],
+      };
+    });
+
+    // Enrichment: traz title + 1 imagem do seu DB para os item_ids retornados pelo settings
+    const allItemIds = new Set();
+    for (const c of campaigns) {
+      const ids = Array.isArray(c?.common_info?.item_id_list)
+        ? c.common_info.item_id_list
+        : [];
+      for (const id of ids) {
+        if (id != null && String(id).trim() !== "") allItemIds.add(String(id));
+      }
+    }
+
+    let products = [];
+    if (allItemIds.size) {
+      const itemIdsBigInt = [];
+      for (const id of allItemIds) {
+        try {
+          itemIdsBigInt.push(BigInt(id));
+        } catch (_) {
+          // ignora ids inválidos
+        }
+      }
+
+      if (itemIdsBigInt.length) {
+        products = await prisma.product.findMany({
+          where: {
+            shopId: shop.id,
+            itemId: { in: itemIdsBigInt },
+          },
+          select: {
+            itemId: true,
+            title: true,
+            images: {
+              select: { url: true },
+              take: 1,
+            },
+          },
+        });
+      }
+    }
+
+    const productByItemId = new Map(
+      products.map((p) => [
+        String(p.itemId),
+        { title: p.title || null, image_url: p.images?.[0]?.url || null },
+      ])
+    );
+
+    // Agora anexa linked_items em cada campanha
+    const campaignsEnriched = campaigns.map((c) => {
+      const itemIds = Array.isArray(c?.common_info?.item_id_list)
+        ? c.common_info.item_id_list
+        : [];
+
+      // Para campanhas auto, temos auto_product_ads_info com status e nome
+      const autoInfo = Array.isArray(c?.auto_product_ads_info)
+        ? c.auto_product_ads_info
+        : [];
+      const autoMap = new Map(
+        autoInfo.filter((x) => x?.item_id).map((x) => [String(x.item_id), x])
+      );
+
+      const linked_items = itemIds.map((itemId) => {
+        const key = String(itemId);
+        const p = productByItemId.get(key) || {};
+        const ai = autoMap.get(key) || {};
+        return {
+          item_id: key,
+          title: p.title || null,
+          image_url: p.image_url || null,
+          product_name: ai.product_name || null,
+          status: ai.status || null,
+        };
+      });
+
+      return { ...c, linked_items };
+    });
+
+    res.json({
+      request_id: raw?.request_id,
+      warning: raw?.warning,
+      error: raw?.error || "",
+      message: raw?.message,
+      response: {
+        shop_id: raw?.response?.shop_id,
+        region: raw?.response?.region,
+        campaign_list: campaignsEnriched,
+      },
+    });
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function campaignItemsPerformance(req, res, next) {
+  try {
+    const shop = await resolveShop(req, req.params.shopId);
+
+    const { campaignId, dateFrom, dateTo } = req.body || {};
+    if (!campaignId || String(campaignId).trim() === "") {
+      return res
+        .status(400)
+        .json({ error: { message: "campaignId é obrigatório." } });
+    }
+
+    // Valida datas (mesmo que o endpoint Shopee de item-performance use outro formato)
+    if (!dateFrom || !dateTo) {
+      return res.status(400).json({
+        error: { message: "dateFrom/dateTo são obrigatórios (YYYY-MM-DD)." },
+      });
+    }
+    const startDate = toShopeeDate(dateFrom);
+    const endDate = toShopeeDate(dateTo);
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        error: { message: "dateFrom/dateTo inválidos. Use YYYY-MM-DD." },
+      });
+    }
+
+    // 1) Puxa settings para obter item_id_list e status/nome no ads
+    const rawSettings = await callAdsWithAutoRefresh({
+      shop,
+      call: (accessToken) =>
+        ShopeeAdsService.get_product_level_campaign_setting_info({
+          accessToken,
+          shopId: shop.shopId,
+          infoTypeList: [1, 2, 3, 4],
+          campaignIdList: [String(campaignId)],
+        }),
+    });
+
+    const settingsList = Array.isArray(rawSettings?.response?.campaign_list)
+      ? rawSettings.response.campaign_list
+      : [];
+
+    const set0 = settingsList[0] || {};
+    const common0 = set0.common_info || {};
+    const itemIds = Array.isArray(common0.item_id_list)
+      ? common0.item_id_list.map((x) => String(x))
+      : [];
+
+    const autoInfo = Array.isArray(set0.auto_product_ads_info)
+      ? set0.auto_product_ads_info
+      : [];
+    const autoMap = new Map(
+      autoInfo
+        .filter((x) => x?.item_id != null)
+        .map((x) => [String(x.item_id), x])
+    );
+
+    // 2) Enrichment no DB (title + 1 imagem)
+    const itemIdsBigInt = [];
+    for (const id of itemIds) {
+      try {
+        itemIdsBigInt.push(BigInt(id));
+      } catch (_) {}
+    }
+
+    let products = [];
+    if (itemIdsBigInt.length) {
+      products = await prisma.product.findMany({
+        where: { shopId: shop.id, itemId: { in: itemIdsBigInt } },
+        select: {
+          itemId: true,
+          title: true,
+          images: { select: { url: true }, take: 1 },
+        },
+      });
+    }
+
+    const productByItemId = new Map(
+      products.map((p) => [
+        String(p.itemId),
+        { title: p.title || null, image_url: p.images?.[0]?.url || null },
+      ])
+    );
+
+    // 3) Monta items base (settings + DB). Métricas vêm na próxima etapa via Shopee endpoint de item-performance.
+    const itemsBase = itemIds.map((itemId) => {
+      const p = productByItemId.get(String(itemId)) || {};
+      const ai = autoMap.get(String(itemId)) || {};
+      return {
+        item_id: String(itemId),
+        title: p.title || null,
+        image_url: p.image_url || null,
+        product_name: ai.product_name || null,
+        status: ai.status || null,
+
+        // métricas (serão preenchidas quando o ShopeeAdsService tiver o endpoint correto)
+        impression: null,
+        clicks: null,
+        expense: null,
+        gmv: null,
+        conversions: null,
+        items: null,
+      };
+    });
+
+    // 4) PERFORMANCE: tenta buscar métricas por item via endpoint configurável
+    let performanceReady = false;
+
+    try {
+      const perfRaw = await callAdsWithAutoRefresh({
+        shop,
+        call: (accessToken) =>
+          ShopeeAdsService.get_cpc_item_performance({
+            accessToken,
+            shopId: shop.shopId,
+            payload: {
+              start_date: startDate,
+              end_date: endDate,
+              campaign_id: Number(campaignId),
+              // Se o endpoint exigir filtro por item, habilite:
+              // item_id_list: itemIds.map((x) => Number(x)),
+            },
+          }),
+      });
+
+      const resp = perfRaw?.response || {};
+      const list =
+        (Array.isArray(resp.result_list) && resp.result_list) ||
+        (Array.isArray(resp.items) && resp.items) ||
+        (Array.isArray(resp.item_list) && resp.item_list) ||
+        [];
+
+      const perfByItemId = new Map();
+
+      for (const row of list) {
+        const itemId =
+          row?.item_id != null
+            ? String(row.item_id)
+            : row?.itemId != null
+            ? String(row.itemId)
+            : null;
+
+        if (!itemId) continue;
+
+        const r = row?.report || row?.metrics || row || {};
+
+        const impression = r.impression ?? r.impressions ?? null;
+        const clicks = r.clicks ?? null;
+        const expense = r.expense ?? r.cost ?? null;
+
+        const gmv = r.direct_gmv ?? r.gmv ?? r.broad_gmv ?? null;
+
+        const conversions =
+          r.direct_order ?? r.order ?? r.orders ?? r.conversions ?? null;
+
+        const itemsSold =
+          r.direct_item_sold ?? r.item_sold ?? r.items ?? r.item_cnt ?? null;
+
+        perfByItemId.set(itemId, {
+          impression,
+          clicks,
+          expense,
+          gmv,
+          conversions,
+          items: itemsSold,
+        });
+      }
+
+      for (const it of itemsBase) {
+        const perf = perfByItemId.get(String(it.item_id));
+        if (!perf) continue;
+
+        it.impression = perf.impression ?? it.impression;
+        it.clicks = perf.clicks ?? it.clicks;
+        it.expense = perf.expense ?? it.expense;
+        it.gmv = perf.gmv ?? it.gmv;
+        it.conversions = perf.conversions ?? it.conversions;
+        it.items = perf.items ?? it.items;
+      }
+
+      performanceReady = true;
+    } catch (_) {
+      performanceReady = false;
+    }
+
+    return res.json({
+      request_id: rawSettings?.request_id,
+      warning: rawSettings?.warning,
+      error: rawSettings?.error || "",
+      message: rawSettings?.message,
+      response: {
+        campaign_id: String(campaignId),
+        date_from: String(dateFrom),
+        date_to: String(dateTo),
+
+        // o front vai renderizar esta lista
+        items: itemsBase,
+
+        // debug/controle (não obrigatório, mas ajuda na UI enquanto integra métricas)
+        performance_ready: performanceReady,
+      },
+    });
+  } catch (e) {
+    next(e);
+  }
+}
+
+function toTsStart(isoDate) {
+  const d = new Date(`${isoDate}T00:00:00.000Z`);
+  return Math.floor(d.getTime() / 1000);
+}
+
+function toTsEnd(isoDate) {
+  const d = new Date(`${isoDate}T23:59:59.999Z`);
+  return Math.floor(d.getTime() / 1000);
+}
+
+module.exports = {
+  balance,
+  dailyPerformance,
+  listCampaignIds,
+  campaignsDailyPerformance,
+  campaignSettings,
+  campaignItemsPerformance,
+};

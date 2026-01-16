@@ -1,0 +1,211 @@
+/* ===========================
+   ADS — Theme-aligned (glass/dark)
+   Scoped to #tab-ads to avoid conflicts
+=========================== */
+
+#tab-ads .muted{color:var(--muted)}
+
+/* KPI grid (Ads) */
+#tab-ads .kpi-grid{
+  display:grid;
+  grid-template-columns:repeat(6,minmax(0,1fr));
+  gap:12px;
+  margin:12px 0;
+}
+
+#tab-ads .kpi-grid-sm{
+  grid-template-columns:repeat(6,minmax(0,1fr));
+}
+
+#tab-ads .kpi{
+  border:1px solid var(--border);
+  background:var(--card);
+  border-radius:var(--radius-sm);
+  padding:10px;
+}
+
+#tab-ads .kpi-label{
+  font-size:12px;
+  color:var(--muted);
+}
+
+#tab-ads .kpi-value{
+  font-size:16px;
+  font-weight:900;
+  color:var(--text);
+  margin-top:4px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+/* Tables in Ads (keep same theme) */
+#tab-ads .table-wrap{
+  overflow:auto;
+  border:1px solid var(--border);
+  border-radius:var(--radius-sm);
+  background:rgba(0,0,0,0.12);
+}
+
+#tab-ads .table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:13px;
+}
+
+#tab-ads .table th,
+#tab-ads .table td{
+  padding:10px;
+  border-bottom:1px solid rgba(255,255,255,0.08);
+  text-align:left;
+  vertical-align:middle;
+}
+
+#tab-ads .table thead th{
+  background:rgba(255,255,255,0.06);
+  font-weight:900;
+  color:var(--text);
+}
+
+#tab-ads .table tbody tr:hover{
+  background:rgba(255,255,255,0.05);
+  cursor:pointer;
+}
+
+/* Split area (Campaign detail + linked items) */
+#tab-ads .split{
+  display:grid;
+  grid-template-columns:1.2fr 0.8fr;
+  gap:12px;
+  margin-top:12px;
+}
+
+#tab-ads .product-thumb{
+  width:34px;
+  height:34px;
+  border-radius:10px;
+  object-fit:cover;
+  background:rgba(255,255,255,0.06);
+  border:1px solid rgba(255,255,255,0.10);
+}
+
+/* Pager / actions spacing */
+#tab-ads .actions{
+  display:flex;
+  gap:10px;
+  margin:10px 0 14px;
+  flex-wrap:wrap;
+}
+
+#tab-ads .pager{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  justify-content:flex-end;
+  margin-top:10px;
+  flex-wrap:wrap;
+}
+
+/* Responsive */
+@media (max-width: 1100px){
+  #tab-ads .kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  #tab-ads .kpi-grid-sm{grid-template-columns:repeat(3,minmax(0,1fr))}
+  #tab-ads .split{grid-template-columns:1fr}
+}
+
+@media (max-width: 640px){
+  #tab-ads .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #tab-ads .kpi-grid-sm{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+/* ===========================
+   Badges (Shopee-like)
+=========================== */
+
+#tab-ads .badge{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:4px 10px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:800;
+  line-height:1;
+  white-space:nowrap;
+  border:1px solid rgba(255,255,255,0.12);
+  background:rgba(255,255,255,0.06);
+  color:var(--text);
+}
+
+#tab-ads .badge-dot{
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:rgba(255,255,255,0.5);
+}
+
+#tab-ads .badge--green{
+  background:rgba(22,163,74,0.18);
+  border-color:rgba(34,197,94,0.35);
+  color:#bbf7d0;
+}
+#tab-ads .badge--green .badge-dot{ background:#22c55e; }
+
+#tab-ads .badge--gray{
+  background:rgba(148,163,184,0.14);
+  border-color:rgba(148,163,184,0.28);
+  color:#e5e7eb;
+}
+#tab-ads .badge--gray .badge-dot{ background:#94a3b8; }
+
+#tab-ads .badge--yellow{
+  background:rgba(245,158,11,0.16);
+  border-color:rgba(245,158,11,0.35);
+  color:#fde68a;
+}
+#tab-ads .badge--yellow .badge-dot{ background:#f59e0b; }
+
+#tab-ads .badge--red{
+  background:rgba(220,38,38,0.18);
+  border-color:rgba(239,68,68,0.35);
+  color:#fecaca;
+}
+#tab-ads .badge--red .badge-dot{ background:#ef4444; }
+
+/* Linha selecionada (ajuda a ficar parecido com a Shopee) */
+#tab-ads .table tbody tr.is-selected{
+  background:rgba(255,255,255,0.08);
+  outline:1px solid rgba(255,255,255,0.12);
+}
+
+#tab-ads .cpc-cards{display:flex;flex-direction:column}
+#tab-ads .cpc-card{display:grid;grid-template-columns:52px 1fr 120px;gap:12px;padding:12px;border-bottom:1px solid rgba(255,255,255,0.08)}
+#tab-ads .cpc-card:hover{background:rgba(255,255,255,0.05);cursor:pointer}
+#tab-ads .cpc-card.is-selected{background:rgba(255,255,255,0.08);outline:1px solid rgba(255,255,255,0.12)}
+
+#tab-ads .cpc-card__thumb{width:46px;height:46px;border-radius:10px;object-fit:cover;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10)}
+#tab-ads .cpc-card__thumb--ph{display:block}
+
+#tab-ads .cpc-card__title{font-weight:900;color:var(--text);line-height:1.15}
+#tab-ads .cpc-card__meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px}
+#tab-ads .cpc-card__grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:10px}
+#tab-ads .cpc-card__grid .v{font-weight:900;margin-top:2px}
+#tab-ads .cpc-card__right{display:flex;flex-direction:column;align-items:flex-end;justify-content:center}
+#tab-ads .cpc-card__right .v{font-weight:900;margin-top:2px}
+
+@media (max-width:900px){
+  #tab-ads .cpc-card{grid-template-columns:52px 1fr}
+  #tab-ads .cpc-card__right{grid-column:2;align-items:flex-start;margin-top:6px}
+  #tab-ads .cpc-card__grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+#tab-ads #cpcCampaignListWrap{
+  max-height:420px;
+  overflow:auto;
+  border:1px solid var(--border);
+  border-radius:var(--radius-sm);
+  background:rgba(0,0,0,0.12);
+}
+@media (max-width:768px){
+  #tab-ads #cpcCampaignListWrap{max-height:320px}
+}
+#tab-ads .cpc-card:last-child{border-bottom:0}

@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>DAVANTTI • Shopee API</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/css/ads.css" />
+    <link rel="stylesheet" href="/css/dashboard.css" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <link rel="stylesheet" href="/css/geo-sales.css" />
+  </head>
+  <body>
+    <!-- Topbar (fina) -->
+    <header class="ml-topbar">
+      <div class="ml-topbar__left">
+        <div class="brand">
+          <img
+            class="logo"
+            src="https://res.cloudinary.com/dhqxp3tuo/image/upload/v1766582391/image_15740736993eche52h2_njlgfu.png"
+            alt="Shopee"
+          />
+          <div class="brand-text">
+            <div class="title">DAVANTTI</div>
+            <div class="subtitle">Open Shopee • Integração</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ml-topbar__right">
+        <div class="header-pill">
+          <span class="dot"></span>
+          <span id="auth-status">Carregando...</span>
+          <button
+            id="btn-switch-shop"
+            class="btn btn-ghost"
+            style="margin-left: 10px"
+          >
+            Trocar loja
+          </button>
+          <button
+            id="btn-logout"
+            class="btn btn-ghost"
+            style="margin-left: 8px"
+          >
+            Sair
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- App layout (sidebar + main) -->
+    <div class="ml-app">
+      <aside class="ml-sidebar">
+        <div class="ml-sidebar__section">
+          <div class="ml-sidebar__title">Menu</div>
+          <button class="tab ml-nav-item active" data-tab="dashboard">
+            <span class="ml-nav-item__label">Dashboard</span>
+            <span class="ml-nav-item__hint muted">Projeção do mês</span>
+          </button>
+          <button class="tab ml-nav-item" data-tab="auth">
+            <span class="ml-nav-item__label">Autenticação</span>
+            <span class="ml-nav-item__hint muted">Token / status</span>
+          </button>
+
+          <button
+            id="admin-tab-btn"
+            class="tab ml-nav-item"
+            data-tab="admin"
+            style="display: none"
+          >
+            <span class="ml-nav-item__label">Admin</span>
+            <span class="ml-nav-item__hint muted">Usuários / Acessos</span>
+          </button>
+
+          <button class="tab ml-nav-item" data-tab="products">
+            <span class="ml-nav-item__label">Produtos</span>
+            <span class="ml-nav-item__hint muted">Catálogo / variações</span>
+          </button>
+
+          <button class="tab ml-nav-item" data-tab="orders">
+            <span class="ml-nav-item__label">Pedidos</span>
+            <span class="ml-nav-item__hint muted">Risco / snapshots</span>
+          </button>
+
+          <button class="tab ml-nav-item" data-tab="ads">
+            <span class="ml-nav-item__label">Ads</span>
+            <span class="ml-nav-item__hint muted">CPC</span>
+          </button>
+          <button class="tab ml-nav-item" data-tab="geo-sales">
+            <span class="ml-nav-item__label">Geografia de Vendas</span>
+            <span class="ml-nav-item__hint muted">Mapa / Heatmap</span>
+          </button>
+        </div>
+      </aside>
+
+      <main class="ml-main container">
+        <section id="tab-dashboard" class="tab-panel active">
+          <div class="page-title">
+            <h2>Dashboard</h2>
+            <div class="page-subtitle muted">
+              Projeção do mês usando <strong id="dashFormula">—</strong>
+            </div>
+          </div>
+
+          <!-- Barra informativa (igual ao print) -->
+          <div
+            class="section-card"
+            style="border-left: 4px solid rgba(59, 130, 246, 0.9)"
+          >
+            <div
+              class="section-card__body"
+              style="
+                display: flex;
+                gap: 10px;
+                align-items: center;
+                justify-content: space-between;
+                flex-wrap: wrap;
+              "
+            >
+              <div class="muted" id="dashAdsStatus">Ads não configurado</div>
+              <div
+                style="
+                  display: flex;
+                  gap: 10px;
+                  align-items: center;
+                  flex-wrap: wrap;
+                "
+              >
+                <span class="badge gray"
+                  >Período: <span id="dashPeriodLabel">—</span></span
+                >
+                <span class="badge gray"
+                  >Dia: <span id="dashDayLabel">—</span></span
+                >
+                <span class="badge gray"
+                  >Progresso: <span id="dashProgressLabel">—</span></span
+                >
+                <button
+                  id="btnDashReload"
+                  class="btn btn-primary"
+                  type="button"
+                >
+                  Atualizar
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- KPIs principais -->
+          <div class="section-grid">
+            <div class="section-card">
+              <div class="section-card__header">
+                <div>
+                  <div class="section-title">Vendas do mês (Total)</div>
+                  <div class="muted">Acumulado até hoje</div>
+                </div>
+                <div class="section-actions">
+                  <span
+                    class="badge"
+                    style="
+                      background: rgba(34, 197, 94, 0.18);
+                      border: 1px solid rgba(34, 197, 94, 0.35);
+                      color: rgba(255, 255, 255, 0.92);
+                    "
+                    >LIVE</span
+                  >
+                </div>
+              </div>
+              <div class="section-card__body">
+                <div class="kpi">
+                  <div class="kpi-value" id="dashGmvMtd">—</div>
+                  <div class="kpi-label">GMV (mês atual)</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="section-card">
+              <div class="section-card__header">
+                <div>
+                  <div class="section-title">Projeção do mês</div>
+                  <div class="muted">Estimativa pelo ritmo atual</div>
+                </div>
+                <div class="section-actions">
+                  <span class="badge gray">ESTIMADA</span>
+                </div>
+              </div>
+              <div class="section-card__body">
+                <div class="kpi">
+                  <div class="kpi-value" id="dashProjection">—</div>
+                  <div class="kpi-label">Projeção (mês)</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="section-card">
+              <div class="section-card__header">
+                <div>
+                  <div class="section-title">Ads (atribuído)</div>
+                  <div class="muted">Quando configurado</div>
+                </div>
+                <div class="section-actions">
+                  <span class="badge gray">INDISP.</span>
+                </div>
+              </div>
+              <div class="section-card__body">
+                <div class="kpi">
+                  <div class="kpi-value" id="dashAdsAttributed">—</div>
+                  <div class="kpi-label">GMV atribuído</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="section-card">
+              <div class="section-card__header">
+                <div>
+                  <div class="section-title">Orgânico (estimado)</div>
+                  <div class="muted">Total - Ads</div>
+                </div>
+                <div class="section-actions">
+                  <span class="badge gray">ESTIMADO</span>
+                </div>
+              </div>
+              <div class="section-card__body">
+                <div class="kpi">
+                  <div class="kpi-value" id="dashOrganicEstimated">—</div>
+                  <div class="kpi-label">Orgânico</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Ritmo do mês -->
+          <div class="section-grid">
+            <div class="section-card" style="grid-column: 1 / -1">
+              <div class="section-card__header">
+                <div>
+                  <div class="section-title">Ritmo do mês (dia a dia)</div>
+                  <div class="muted">
+                    Barras: GMV por dia • Hoje em verde • Dias futuros em cinza
+                  </div>
+                </div>
+              </div>
+              <div class="section-card__body">
+                <canvas id="dashSalesChart" height="120"></canvas>
+                <div class="muted" style="margin-top: 10px">
+                  Média/dia: <strong id="dashAvgPerDay">—</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- KPIs secundários -->
+          <div class="section-grid">
+            <div class="section-card">
+              <div class="section-card__header">
+                <div>
+                  <div class="section-title">Pedidos (mês)</div>
+                  <div class="muted">Quantidade</div>
+                </div>
+              </div>
+              <div class="section-card__body">
+                <div class="kpi">
+                  <div class="kpi-value" id="dashOrdersCount">—</div>
+                  <div class="kpi-label">Pedidos no mês</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="section-card">
+              <div class="section-card__header">
+                <div>
+                  <div class="section-title">Ticket médio</div>
+                  <div class="muted">GMV / pedidos</div>
+                </div>
+              </div>
+              <div class="section-card__body">
+                <div class="kpi">
+                  <div class="kpi-value" id="dashTicketAvg">—</div>
+                  <div class="kpi-label">Ticket médio</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="section-card">
+              <div class="section-card__header">
+                <div>
+                  <div class="section-title">Status</div>
+                  <div class="muted">Mensagens do dashboard</div>
+                </div>
+              </div>
+              <div class="section-card__body">
+                <div class="muted" id="dashMsg"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <!-- AUTH -->
+        <section id="tab-auth" class="tab-panel">
+          <div class="page-title">
+            <h2>Autenticação</h2>
+            <div class="page-subtitle muted">
+              Controle de acesso e status da integração.
+            </div>
+          </div>
+
+          <div class="section-card">
+            <div class="section-card__header">
+              <div>
+                <div class="section-title">Status</div>
+                <div class="muted">Visualize o estado atual da integração.</div>
+              </div>
+            </div>
+            <div class="section-card__body">
+              <div class="info-row">
+                <div class="info-label">Status</div>
+                <div class="info-value" id="auth-status-view">
+                  Ainda não configurado
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-card">
+            <div class="section-card__header">
+              <div>
+                <div class="section-title">Ações</div>
+                <div class="muted">Gere o link e finalize a autorização.</div>
+              </div>
+              <div class="section-actions">
+                <button id="btn-auth-url" class="btn btn-primary">
+                  Gerar link de autorização
+                </button>
+              </div>
+            </div>
+            <div class="section-card__body">
+              <div
+                id="auth-url-preview"
+                class="muted"
+                style="word-break: break-all"
+              ></div>
+            </div>
+          </div>
+        </section>
+
+        <section id="tab-admin" class="tab-panel">
+          <div class="page-title">
+            <h2 id="admin-title">Admin</h2>
+            <div class="page-subtitle muted">
+              Gerenciamento de usuários e acessos.
+            </div>
+          </div>
+
+          <div id="admin-root" class="admin-root">
+            <div class="muted">Carregando...</div>
+          </div>
+        </section>
+
+        <!-- PRODUCTS -->
+        <section id="tab-products" class="tab-panel">
+          <div class="page-title">
+            <h2>Produtos</h2>
+            <div class="page-subtitle muted">
+              Sincronização sob demanda, listagem e detalhes.
+            </div>
+          </div>
+
+          <div class="section-grid">
+            <div class="section-card">
+              <div class="section-card__header">
+                <div>
+                  <div class="section-title">Sincronização</div>
+                  <div class="muted">
+                    Sincroniza apenas quando solicitado (sob demanda).
+                  </div>
+                </div>
+                <div class="section-actions">
+                  <button id="btn-sync-products" class="btn btn-primary">
+                    Sincronizar Produtos
+                  </button>
+                </div>
+              </div>
+              <div class="section-card__body">
+                <div id="products-sync-status" class="muted"></div>
+              </div>
+            </div>
+
+            <div class="section-card">
+              <div class="section-card__header">
+                <div>
+                  <div class="section-title">Visualização</div>
+                  <div class="muted">Filtros, ordenação e busca.</div>
+                </div>
+              </div>
+              <div class="section-card__body">
+                <div class="toolbar">
+                  <div class="toolbar__left">
+                    <label class="muted">Por página:</label>
+                    <select id="products-page-size" class="select">
+                      <option value="25">25</option>
+                      <option value="50" selected>50</option>
+                      <option value="100">100</option>
+                    </select>
+
+                    <label class="muted">Ordenar por:</label>
+                    <select id="products-sort-by" class="select">
+                      <option value="updatedAt">Atualização</option>
+                      <option value="createdAt">Criação</option>
+                      <option value="sold">Vendas</option>
+                    </select>
+
+                    <select id="products-sort-dir" class="select">
+                      <option value="desc" selected>
+                        ↓ (maior → menor / mais recente)
+                      </option>
+                      <option value="asc">
+                        ↑ (menor → maior / mais antigo)
+                      </option>
+                    </select>
+                  </div>
+
+                  <div class="toolbar__right">
+                    <input
+                      id="products-q"
+                      class="input"
+                      placeholder="Buscar por ID, SKU ou Nome..."
+                    />
+                    <button id="products-search" class="btn">Buscar</button>
+                    <button id="products-clear" class="btn btn-ghost">
+                      Limpar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="products-grid" class="grid"></div>
+
+          <div class="section-card products-pagination">
+            <div class="section-card__body">
+              <div class="toolbar toolbar--between">
+                <div id="products-page-info" class="muted"></div>
+                <div class="products-pager-actions">
+                  <button id="products-first" class="btn btn-ghost">
+                    Primeira
+                  </button>
+                  <button id="products-prev" class="btn btn-ghost">
+                    Anterior
+                  </button>
+                  <button id="products-next" class="btn btn-ghost">
+                    Próxima
+                  </button>
+                  <button id="products-last" class="btn btn-ghost">
+                    Última
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ORDERS -->
+        <section id="tab-orders" class="tab-panel">
+          <div class="page-title">
+            <h2>Pedidos</h2>
+            <div class="page-subtitle muted">
+              Sincronize e consulte pedidos armazenados no banco.
+            </div>
+          </div>
+
+          <div class="section-card">
+            <div class="section-card__header">
+              <div>
+                <div class="section-title">Alertas</div>
+                <div class="muted">Troca de endereço e risco de atraso.</div>
+              </div>
+              <div class="section-actions">
+                <button id="btn-sync-orders" class="btn btn-primary">
+                  Sincronizar Pedidos
+                </button>
+
+                <div class="orders-alerts-wrap">
+                  <button
+                    id="btn-orders-address-alerts"
+                    class="btn btn-ghost"
+                    type="button"
+                  >
+                    Alertas de endereço
+                    <span
+                      id="orders-address-alerts-badge"
+                      class="badge"
+                      style="display: none"
+                      >0</span
+                    >
+                  </button>
+
+                  <div
+                    id="orders-address-alerts-popover"
+                    class="orders-alerts-popover"
+                    style="display: none"
+                  >
+                    <div class="orders-alerts-popover__header">
+                      <div class="orders-alerts-popover__title">
+                        Alertas de endereço
+                      </div>
+                      <button
+                        id="orders-address-alerts-close"
+                        class="btn btn-ghost"
+                        type="button"
+                      >
+                        Fechar
+                      </button>
+                    </div>
+                    <div
+                      id="orders-address-alerts-list"
+                      class="orders-alerts-popover__list"
+                    ></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="section-card__body">
+              <div id="orders-sync-status" class="muted"></div>
+            </div>
+          </div>
+
+          <div id="orders-grid" class="grid"></div>
+        </section>
+
+        <!-- ADS -->
+        <section id="tab-ads" class="tab-panel">
+          <div class="page-title">
+            <h2>Ads</h2>
+            <div class="page-subtitle muted">Shopee Ads</div>
+          </div>
+
+          <div class="section-card">
+            <div class="section-card__header">
+              <div>
+                <div class="section-title">Filtros</div>
+                <div class="muted">Use o mesmo período para CPC.</div>
+              </div>
+              <div
+                class="section-actions"
+                style="
+                  display: flex;
+                  gap: 10px;
+                  align-items: flex-end;
+                  flex-wrap: wrap;
+                "
+              >
+                <div class="field">
+                  <label class="muted" for="adsDateFrom">De</label>
+                  <input type="date" id="adsDateFrom" class="input" />
+                </div>
+                <div class="field">
+                  <label class="muted" for="adsDateTo">Até</label>
+                  <input type="date" id="adsDateTo" class="input" />
+                </div>
+                <button id="btnAdsReload" class="btn btn-primary">
+                  Atualizar
+                </button>
+              </div>
+            </div>
+            <div class="section-card__body">
+              <div class="muted">
+                Observação: CPC permite no máximo 1 mês. Se o período for maior,
+                o CPC será automaticamente ajustado para os últimos 30 dias.
+              </div>
+            </div>
+          </div>
+
+          <div class="section-grid">
+            <div class="section-card">
+              <div class="section-card__header">
+                <div>
+                  <div class="section-title">Resumo</div>
+                  <div class="muted">
+                    Saldo e métricas agregadas do período.
+                  </div>
+                </div>
+              </div>
+              <div class="section-card__body">
+                <div class="kpi-grid">
+                  <div class="kpi">
+                    <div class="kpi-label">Saldo Ads</div>
+                    <div class="kpi-value" id="kpiAdsBalance">—</div>
+                  </div>
+                  <div class="kpi">
+                    <div class="kpi-label">Gasto</div>
+                    <div class="kpi-value" id="kpiCpcExpense">—</div>
+                  </div>
+                  <div class="kpi">
+                    <div class="kpi-label">ROAS (Direto)</div>
+                    <div class="kpi-value" id="kpiCpcRoas">—</div>
+                  </div>
+                  <div class="kpi">
+                    <div class="kpi-label">ROAS (Broad)</div>
+                    <div class="kpi-value" id="kpiCpcRoasBroad">—</div>
+                  </div>
+                  <div class="kpi">
+                    <div class="kpi-label">Impressões</div>
+                    <div class="kpi-value" id="kpiCpcImpressions">—</div>
+                  </div>
+                  <div class="kpi">
+                    <div class="kpi-label">Cliques</div>
+                    <div class="kpi-value" id="kpiCpcClicks">—</div>
+                  </div>
+                  <div class="kpi">
+                    <div class="kpi-label">CTR</div>
+                    <div class="kpi-value" id="kpiCpcCtr">—</div>
+                  </div>
+                  <div class="kpi">
+                    <div class="kpi-label">GMV Direto</div>
+                    <div class="kpi-value" id="kpiCpcDirectGmv">—</div>
+                    <div
+                      class="muted"
+                      style="
+                        margin-top: 6px;
+                        font-size: 12px;
+                        line-height: 1.25;
+                      "
+                    >
+                      Vendas atribuídas diretamente ao clique no anúncio.
+                    </div>
+                  </div>
+                  <div class="kpi">
+                    <div class="kpi-label">GMV Broad</div>
+                    <div class="kpi-value" id="kpiCpcBroadGmv">—</div>
+                    <div
+                      class="muted"
+                      style="
+                        margin-top: 6px;
+                        font-size: 12px;
+                        line-height: 1.25;
+                      "
+                    >
+                      Vendas influenciadas pelo anúncio (atribuição indireta) /
+                      GMV Total.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="section-card">
+              <div class="section-card__header">
+                <div>
+                  <div class="section-title">Evolução diária</div>
+                  <div class="muted">Impressões, cliques, gasto e GMV.</div>
+                </div>
+              </div>
+              <div class="section-card__body">
+                <canvas id="chartCpcDaily" height="110"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-card">
+            <div class="section-card__header">
+              <div>
+                <div class="section-title">Campanhas</div>
+                <div class="muted">
+                  Clique em uma campanha para ver detalhes.
+                </div>
+              </div>
+
+              <div class="section-actions">
+                <button id="btnExportCpcCampaignsCsv" class="btn btn-ghost">
+                  Exportar CSV
+                </button>
+              </div>
+            </div>
+
+            <div class="section-card__body">
+              <!-- ✅ Grupos de campanhas (unitária = 1 id | grupal = N ids) -->
+              <div class="section-card" style="margin: 0 0 12px">
+                <div class="section-card__header">
+                  <div>
+                    <div class="section-title">Grupos</div>
+                    <div class="muted">
+                      Agrupe várias campanhas para ver totais e itens em
+                      conjunto.
+                    </div>
+                  </div>
+                  <div
+                    class="section-actions"
+                    style="display: flex; gap: 8px; flex-wrap: wrap"
+                  >
+                    <button id="btnAdsGroupReload" class="btn btn-ghost">
+                      Atualizar grupos
+                    </button>
+                    <button id="btnAdsGroupCreate" class="btn btn-primary">
+                      Criar grupo
+                    </button>
+                    <button id="btnAdsGroupEdit" class="btn btn-ghost">
+                      Editar
+                    </button>
+                    <button id="btnAdsGroupDelete" class="btn btn-ghost">
+                      Excluir
+                    </button>
+                  </div>
+                </div>
+
+                <div class="section-card__body">
+                  <div
+                    style="
+                      display: flex;
+                      gap: 10px;
+                      align-items: center;
+                      flex-wrap: wrap;
+                    "
+                  >
+                    <select
+                      id="adsGroupSelect"
+                      class="select"
+                      style="min-width: 260px"
+                    >
+                      <option value="">Selecione um grupo…</option>
+                    </select>
+                    <button id="btnAdsGroupViewItems" class="btn btn-ghost">
+                      Ver itens do grupo
+                    </button>
+                  </div>
+
+                  <div
+                    class="muted"
+                    id="adsGroupMsg"
+                    style="margin: 6px 0 0"
+                  ></div>
+                  <div
+                    class="muted"
+                    id="adsGroupLoading"
+                    style="margin: 6px 0 0"
+                  ></div>
+
+                  <div id="adsGroupSummary" style="margin-top: 10px"></div>
+                  <div id="adsGroupItems" style="margin-top: 10px"></div>
+                </div>
+              </div>
+              <!-- TOOLBAR + MENSAGENS (ANTES DA TABELA) -->
+              <div
+                class="toolbar"
+                style="
+                  margin-bottom: 10px;
+                  display: flex;
+                  gap: 10px;
+                  justify-content: space-between;
+                  flex-wrap: wrap;
+                "
+              >
+                <div
+                  style="
+                    display: flex;
+                    gap: 10px;
+                    flex-wrap: wrap;
+                    align-items: center;
+                  "
+                >
+                  <input
+                    id="cpcCampaignFilter"
+                    class="input"
+                    placeholder="Filtrar por nome ou ID..."
+                    style="min-width: 260px"
+                  />
+                  <select id="cpcCampaignSortBy" class="select">
+                    <option value="expense_desc" selected>
+                      Custo (maior → menor)
+                    </option>
+                    <option value="expense_asc">Custo (menor → maior)</option>
+
+                    <option value="direct_gmv_desc">
+                      GMV Direto (maior → menor)
+                    </option>
+                    <option value="direct_gmv_asc">
+                      GMV Direto (menor → maior)
+                    </option>
+
+                    <option value="direct_roas_desc">
+                      ROAS Direto (maior → menor)
+                    </option>
+                    <option value="direct_roas_asc">
+                      ROAS Direto (menor → maior)
+                    </option>
+
+                    <option value="clicks_desc">Cliques (maior → menor)</option>
+                    <option value="clicks_asc">Cliques (menor → maior)</option>
+
+                    <option value="impression_desc">
+                      Impressões (maior → menor)
+                    </option>
+                    <option value="impression_asc">
+                      Impressões (menor → maior)
+                    </option>
+                  </select>
+                  <div class="status-tabs" id="cpcStatusTabs">
+                    <button class="status-tab" data-status="all" type="button">
+                      Tudo
+                    </button>
+                    <button
+                      class="status-tab"
+                      data-status="scheduled"
+                      type="button"
+                    >
+                      Programado
+                    </button>
+                    <button
+                      class="status-tab is-active"
+                      data-status="active"
+                      type="button"
+                    >
+                      Em andamento
+                    </button>
+                    <button
+                      class="status-tab"
+                      data-status="paused"
+                      type="button"
+                    >
+                      Pausado
+                    </button>
+                    <button
+                      class="status-tab"
+                      data-status="ended"
+                      type="button"
+                    >
+                      Encerrado
+                    </button>
+                    <button
+                      class="status-tab"
+                      data-status="deleted"
+                      type="button"
+                    >
+                      Excluído
+                    </button>
+                  </div>
+
+                  <!-- opcional: manter o select antigo escondido para não quebrar nada -->
+                  <select
+                    id="cpcCampaignStatusFilter"
+                    class="select"
+                    style="display: none"
+                  >
+                    <option value="all">all</option>
+                    <option value="active">active</option>
+                    <option value="inactive">inactive</option>
+                  </select>
+                  <button id="btnCpcCampaignClearFilter" class="btn btn-ghost">
+                    Limpar
+                  </button>
+                </div>
+
+                <div class="muted" id="cpcCampaignCount">—</div>
+              </div>
+
+              <div
+                class="muted"
+                id="cpcCampaignMsg"
+                style="margin: 6px 0 10px"
+              ></div>
+              <div
+                class="muted"
+                id="cpcLoading"
+                style="margin: 6px 0 10px"
+              ></div>
+
+              <!-- TABELA -->
+              <div id="cpcCampaignListWrap">
+                <div id="cpcCampaignCards" class="cpc-cards"></div>
+              </div>
+              <div
+                id="cpcCampaignPager"
+                class="pager"
+                style="
+                  justify-content: space-between;
+                  gap: 10px;
+                  flex-wrap: wrap;
+                "
+              >
+                <div
+                  style="
+                    display: flex;
+                    gap: 8px;
+                    align-items: center;
+                    flex-wrap: wrap;
+                  "
+                >
+                  <span class="muted">Por página:</span>
+                  <select id="cpcCampaignPageSize" class="select">
+                    <option>20</option>
+                    <option>50</option>
+                    <option>100</option>
+                  </select>
+                  <span class="muted" id="cpcCampaignPageInfo">—</span>
+                </div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap">
+                  <button id="cpcCampaignFirst" class="btn btn-ghost">
+                    Primeira
+                  </button>
+                  <button id="cpcCampaignPrev" class="btn btn-ghost">
+                    Anterior
+                  </button>
+                  <button id="cpcCampaignNext" class="btn btn-ghost">
+                    Próxima
+                  </button>
+                  <button id="cpcCampaignLast" class="btn btn-ghost">
+                    Última
+                  </button>
+                </div>
+              </div>
+              <!-- DETALHE + PRODUTOS VINCULADOS -->
+              <div class="split" style="margin-top: 12px">
+                <div class="section-card" style="margin: 0">
+                  <div class="section-card__header">
+                    <div>
+                      <div class="section-title">Detalhe da campanha</div>
+                      <div class="muted" id="cpcCampaignSelected">
+                        Nenhuma selecionada
+                      </div>
+                    </div>
+                  </div>
+                  <div class="section-card__body">
+                    <div class="kpi-grid kpi-grid-sm">
+                      <div class="kpi">
+                        <div class="kpi-label">Impressões</div>
+                        <div class="kpi-value" id="cpcCampImp">—</div>
+                      </div>
+                      <div class="kpi">
+                        <div class="kpi-label">Cliques</div>
+                        <div class="kpi-value" id="cpcCampClicks">—</div>
+                      </div>
+                      <div class="kpi">
+                        <div class="kpi-label">Gasto</div>
+                        <div class="kpi-value" id="cpcCampExpense">—</div>
+                      </div>
+                      <div class="kpi">
+                        <div class="kpi-label">GMV Dir.</div>
+                        <div class="kpi-value" id="cpcCampDirectGmv">—</div>
+                      </div>
+                    </div>
+                    <canvas id="chartCpcCampaign" height="110"></canvas>
+                  </div>
+                </div>
+
+                <div class="section-card" style="margin: 0">
+                  <div class="section-card__header">
+                    <div>
+                      <div class="section-title">Desempenho do produto</div>
+                      <div class="muted">Por item (no período selecionado)</div>
+                    </div>
+                    <div
+                      class="section-actions"
+                      style="display: flex; gap: 8px; flex-wrap: wrap"
+                    >
+                      <button
+                        id="btnExportCpcLinkedItemsCsv"
+                        class="btn btn-ghost"
+                      >
+                        Exportar CSV (Itens)
+                      </button>
+                      <button
+                        id="btnExportCpcProductPerfCsv"
+                        class="btn btn-ghost"
+                      >
+                        Exportar CSV (Desempenho)
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="section-card__body">
+                    <div
+                      class="muted"
+                      id="cpcItemsMsg"
+                      style="margin: 6px 0 10px"
+                    ></div>
+                    <div
+                      class="muted"
+                      id="cpcItemsLoading"
+                      style="margin: 6px 0 10px"
+                    ></div>
+
+                    <div class="table-wrap">
+                      <table class="table" id="tblCpcCampaignItems">
+                        <thead>
+                          <tr>
+                            <th>Produto</th>
+                            <th>Impressões</th>
+                            <th>Cliques</th>
+                            <th>Investimento</th>
+                            <th>GMV</th>
+                            <th>Conversões</th>
+                            <th>Itens</th>
+                            <th>Ação</th>
+                          </tr>
+                        </thead>
+                        <tbody></tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <!-- GEO SALES -->
+        <section id="tab-geo-sales" class="tab-panel">
+          <div class="page-title">
+            <h2>Geografia de Vendas</h2>
+            <div class="page-subtitle muted">
+              Mapa interativo • Últimos
+              <span id="geoSalesMonthsLabel">6</span> meses
+            </div>
+          </div>
+
+          <div class="section-card">
+            <div class="section-card__header">
+              <div>
+                <div class="section-title" id="geoSalesTitle">Brasil</div>
+                <div class="muted" id="geoSalesSubtitle">Vendas por estado</div>
+              </div>
+
+              <div
+                class="section-actions"
+                style="display: flex; gap: 10px; flex-wrap: wrap"
+              >
+                <div class="field">
+                  <label class="muted" for="geoSalesMonths">Período</label>
+                  <select id="geoSalesMonths" class="select">
+                    <option value="3">Últimos 3 meses</option>
+                    <option value="6" selected>Últimos 6 meses</option>
+                  </select>
+                </div>
+
+                <button
+                  id="geoSalesBack"
+                  class="btn btn-ghost"
+                  type="button"
+                  style="display: none"
+                >
+                  Voltar
+                </button>
+
+                <button
+                  id="geoSalesReload"
+                  class="btn btn-primary"
+                  type="button"
+                >
+                  Atualizar
+                </button>
+              </div>
+            </div>
+
+            <div class="section-card__body">
+              <div class="split" style="gap: 12px">
+                <div class="section-card" style="margin: 0; flex: 2">
+                  <div class="section-card__body">
+                    <div
+                      id="geoSalesMap"
+                      style="
+                        height: 560px;
+                        border-radius: 14px;
+                        overflow: hidden;
+                      "
+                    ></div>
+                    <div
+                      class="muted"
+                      id="geoSalesLegend"
+                      style="margin-top: 10px"
+                    ></div>
+                  </div>
+                </div>
+
+                <div class="section-card" style="margin: 0; flex: 1">
+                  <div class="section-card__header">
+                    <div>
+                      <div class="section-title">Índice</div>
+                      <div class="muted" id="geoSalesIndexSubtitle">
+                        Vendas por estado
+                      </div>
+                    </div>
+                  </div>
+                  <div class="section-card__body">
+                    <div id="geoSalesIndex" class="muted">Carregando...</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Modal (IDs mantidos) -->
+    <div id="modal-overlay" class="modal-overlay" style="display: none">
+      <div class="modal">
+        <div class="modal-header">
+          <div id="modal-title" class="modal-title">Detalhes</div>
+          <button id="modal-close" class="modal-close">Fechar</button>
+        </div>
+        <div id="modal-body" class="modal-body"></div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="/js/ads.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>

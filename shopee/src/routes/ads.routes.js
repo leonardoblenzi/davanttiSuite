@@ -1,0 +1,50 @@
+const express = require("express");
+const { requireAuth } = require("../middlewares/sessionAuth");
+const AdsController = require("../controllers/AdsController");
+const AdsCampaignGroupsController = require("../controllers/AdsCampaignGroupsController");
+const router = express.Router();
+router.use(requireAuth);
+
+router.get("/shops/:shopId/ads/balance", AdsController.balance);
+router.get(
+  "/shops/:shopId/ads/performance/daily",
+  AdsController.dailyPerformance
+);
+
+router.get("/shops/:shopId/ads/campaigns/ids", AdsController.listCampaignIds);
+router.get(
+  "/shops/:shopId/ads/campaigns/settings",
+  AdsController.campaignSettings
+);
+
+router.get(
+  "/shops/:shopId/ads/campaigns/performance/daily",
+  AdsController.campaignsDailyPerformance
+);
+
+router.post(
+  "/shops/:shopId/ads/campaigns/items/performance",
+  AdsController.campaignItemsPerformance
+);
+
+router.get(
+  "/shops/:shopId/ads/campaign-groups",
+  AdsCampaignGroupsController.list
+);
+
+router.post(
+  "/shops/:shopId/ads/campaign-groups",
+  AdsCampaignGroupsController.create
+);
+
+router.put(
+  "/shops/:shopId/ads/campaign-groups/:groupId",
+  AdsCampaignGroupsController.update
+);
+
+router.delete(
+  "/shops/:shopId/ads/campaign-groups/:groupId",
+  AdsCampaignGroupsController.remove
+);
+
+module.exports = router;
