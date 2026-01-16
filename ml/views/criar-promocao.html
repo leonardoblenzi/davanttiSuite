@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Promoções • Central</title>
+
+  <link rel="stylesheet" href="/ml/css/dashboard.css?v=2">
+  <link rel="stylesheet" href="/ml/css/promo-jobs.css">
+  <link rel="stylesheet" href="/ml/css/criar-promocao.css?v=4">
+
+  <style>
+    .jobs-panel .pill{display:inline-block;padding:.18rem .55rem;border-radius:999px;font-weight:700;font-size:.78rem}
+    .jobs-panel .pill.drossi{background:#e8f0ff;color:#1d4ed8}
+    .jobs-panel .pill.diplany{background:#e6fffb;color:#0e7490}
+    .jobs-panel .pill.rossidecor{background:#ffe9e7;color:#a11a1a}
+  </style>
+</head>
+<body>
+  <!-- TOPO FIXO -->
+  <header class="account-bar">
+    <div class="account-bar__left">
+      <a class="brand" href="/ml/dashboard" aria-label="DAVANTTI">
+        <img
+          src="/ml/img/davantti.png"
+          alt="DAVANTTI"
+          class="brand__logo"
+          width="170"
+          height="42"
+          decoding="async"
+          loading="eager"
+        />
+      </a>
+    </div>
+
+    <div class="account-bar__right">
+      <div class="account-bar__current">
+        <span class="lbl">Conta:</span>
+        <span id="account-current" data-account-label class="val">Carregando...</span>
+      </div>
+      <button id="btn-status" class="account-bar__status" title="Ver status do token">Status</button>
+      <button id="account-switch" data-account-switch class="account-bar__switch" title="Trocar de conta">Trocar Conta</button>
+    </div>
+  </header>
+
+ <!-- NAV TABS -->
+  <nav class="main-nav">
+    <div class="tabs">
+      <button class="nav-tab" onclick="location.href='/dashboard#dashboard'">Dashboard</button>
+      <button class="nav-tab" onclick="location.href='/dashboard#anuncios'">Anúncios</button>
+      <button class="nav-tab  active" onclick="location.href='/dashboard#produtos'">Alterações Massivas</button>
+      <button class="nav-tab" onclick="location.href='/dashboard#ia'">IA & Analytics</button>
+      <button class="nav-tab" onclick="location.href='/dashboard#publicidade'">Publicidade</button>
+      <button class="nav-tab" onclick="location.href='/dashboard#benchmarking'">Benchmarking</button>
+      <button class="nav-tab" onclick="location.href='/dashboard#alertas'">Alertas</button>
+      <button class="nav-tab" onclick="location.href='/dashboard#ml'">ML</button>
+      <button class="nav-tab" onclick="location.href='/full'">FULL</button>
+      <button class="nav-tab" onclick="location.href='/dashboard#admin'">Admin</button>
+    </div>
+  </nav>
+
+  <div class="wrap">
+    <h2>Central de Promoções</h2>
+
+    <!-- Barra de busca MLB -->
+    <section id="promo-toolbar" class="promo-toolbar">
+      <label for="mlbFilter" class="block-label">Buscar item (MLB)</label>
+      <div class="inline">
+        <input id="mlbFilter" type="text" placeholder="MLB1234567890"/>
+        <button id="btnFiltrarItem" class="btn" type="button">Buscar</button>
+        <button id="btnLimparItem" class="btn ghost" type="button">Limpar</button>
+      </div>
+      <small class="muted">
+        Ao buscar, mostro apenas as campanhas que oferecem promoção para esse item.
+      </small>
+    </section>
+
+    <!-- ✅ NOVO: Abas por tipo (estilo ML) -->
+    <section class="promo-tabs">
+      <div class="promo-tabs__row" id="promoTypeTabs" role="tablist" aria-label="Tipos de promoção">
+        <button class="promo-tab active" type="button" data-type="ALL" role="tab" aria-selected="true">
+          Todas <span class="count" data-count="ALL">0</span>
+        </button>
+
+        <button class="promo-tab" type="button" data-type="SMART" role="tab" aria-selected="false">
+          Smart <span class="count" data-count="SMART">0</span>
+        </button>
+
+        <button class="promo-tab" type="button" data-type="DEAL" role="tab" aria-selected="false">
+          Deal <span class="count" data-count="DEAL">0</span>
+        </button>
+
+        <button class="promo-tab" type="button" data-type="PRICE_MATCHING" role="tab" aria-selected="false">
+          Price Matching <span class="count" data-count="PRICE_MATCHING">0</span>
+        </button>
+
+        <button class="promo-tab" type="button" data-type="SELLER_CAMPAIGN" role="tab" aria-selected="false">
+          Seller <span class="count" data-count="SELLER_CAMPAIGN">0</span>
+        </button>
+
+        <button class="promo-tab" type="button" data-type="MARKETPLACE_CAMPAIGN" role="tab" aria-selected="false">
+          Marketplace <span class="count" data-count="MARKETPLACE_CAMPAIGN">0</span>
+        </button>
+
+        <button class="promo-tab" type="button" data-type="PRICE_DISCOUNT" role="tab" aria-selected="false">
+          Price Discount <span class="count" data-count="PRICE_DISCOUNT">0</span>
+        </button>
+
+        <button class="promo-tab" type="button" data-type="DOD" role="tab" aria-selected="false">
+          DOD <span class="count" data-count="DOD">0</span>
+        </button>
+
+        <button class="promo-tab" type="button" data-type="PRICE_MATCHING_MELI_ALL" role="tab" aria-selected="false" title="Gerida pelo ML">
+          PM (ML) <span class="count" data-count="PRICE_MATCHING_MELI_ALL">0</span>
+        </button>
+
+        <button class="promo-tab" type="button" data-type="OTHER" role="tab" aria-selected="false">
+          Outros <span class="count" data-count="OTHER">0</span>
+        </button>
+      </div>
+
+      <div class="promo-tabs__hint muted" id="promoTabsHint">
+        Mostrando: <strong id="promoTabsLabel">Todas</strong>
+        <span class="sep">•</span>
+        <span id="promoTabsMeta">—</span>
+      </div>
+    </section>
+
+    <!-- Cards de campanhas -->
+    <div class="cards" id="cards">
+      <div class="card">
+        <h3>Carregando promoções…</h3>
+        <div class="muted">Aguarde</div>
+      </div>
+    </div>
+
+    <!-- Cabeçalho da campanha + filtros + barra de seleção -->
+    <div class="mostrar-bar">
+      <div class="camp-header">
+        <div id="campName" class="camp-name" title="— selecione um card —">
+          — selecione um card —
+        </div>
+      </div>
+
+      <div class="controls-line">
+        <div class="lado-esquerdo">
+          <div class="radios-line">
+            <label><input type="radio" name="filtro" value="all" checked> Todos</label>
+            <label><input type="radio" name="filtro" value="non"> Não participantes</label>
+            <label><input type="radio" name="filtro" value="yes"> Participantes</label>
+            <label><input type="radio" name="filtro" value="prog"> Programados</label>
+          </div>
+        </div>
+
+        <div class="lado-direito">
+          <div class="filters-inline">
+            <label for="maxDescTableInput">Desc. máx. (%)</label>
+            <input id="maxDescTableInput" type="number" min="0" max="99" step="0.01" placeholder="Ex: 15"/>
+            <button id="btnMaxDescTable" class="btn" type="button">Aplicar</button>
+            <button id="btnLimparMaxDescTable" class="btn ghost" type="button">Limpar</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="selectionBar" class="selection-bar hidden">
+        <div class="selection-main">
+          <div id="selMsg" class="selection-text">Nenhum item selecionado.</div>
+          <div id="selHint" class="selection-hint muted">
+            Use o checkbox da tabela para selecionar a página atual
+            ou clique em <strong>“Selecionar toda a campanha (filtrados)”</strong>.
+          </div>
+        </div>
+
+        <div class="selection-actions">
+          <button id="selAllCampaignBtn" class="btn ghost" type="button">Selecionar toda a campanha (filtrados)</button>
+          <button id="selApplyBtn" class="btn success" type="button" disabled>Aplicar</button>
+          <button id="selRemoveBtn" class="btn danger" type="button" disabled>Remover</button>
+
+          <div class="inline-options">
+            <label title="Simula a aplicação sem enviar ao ML">
+              <input id="dryRunToggle" type="checkbox"> Simular (dry-run)
+            </label>
+            <label>
+              Delay (ms)
+              <input id="bulkDelayMs" type="number" min="0" step="50" value="900">
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabela -->
+    <div class="card">
+      <table class="table" id="tabela">
+        <thead>
+          <tr>
+            <th style="width:44px;text-align:center">
+              <input
+                type="checkbox"
+                id="checkAll"
+                aria-label="Selecionar página"
+                onchange="toggleTodos(this); window.PromoBulk && window.PromoBulk.onHeaderToggle(this.checked)"
+              >
+            </th>
+            <th>MLB</th>
+            <th>Título</th>
+            <th>Estoque</th>
+            <th>SKU</th>
+            <th>Preço atual</th>
+            <th>Desc. camp.</th>
+            <th>Preço final</th>
+            <th>Rebate</th>
+            <th>Novo preço</th>
+            <th>Status</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr>
+            <td colspan="12" class="muted">Sem itens. Clique em um card de promoção.</td>
+          </tr>
+        </tbody>
+      </table>
+      <div id="paginacao" class="pagination" aria-label="Paginação"></div>
+    </div>
+
+    <div class="progress-wrap">
+      <div id="progressText" class="muted" aria-live="polite">Aguardando…</div>
+      <div class="progress" aria-hidden="true"><div id="progressFill" class="fill"></div></div>
+      <a id="downloadLink" href="#" style="display:none;margin-top:8px">Baixar CSV do processamento</a>
+    </div>
+  </div>
+
+  <div id="hudPanel" class="jobs-panel hidden"></div>
+  <div id="bulkJobsPanel" class="jobs-panel"></div>
+
+  <!-- Scripts -->
+  <script src="/ml/js/jobs-panel.js" defer></script>
+  <script src="/ml/js/account-bar.js" defer></script>
+  <script src="/ml/js/criar-promocao.js" defer></script>
+  <script src="/ml/js/promo-bulk.js" defer></script>
+
+  <!-- Wrapper: injeta conta no bulk -->
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        window.JobsPanel && window.JobsPanel.show?.();
+
+        const acc = await (window.AccountBar?.ensure?.() ?? Promise.resolve(window.__ACCOUNT__));
+        const ctx = {
+          key: (acc?.key || ''),
+          label: acc?.label || ''
+        };
+
+        if (window.PromoBulk?.setAccountContext) {
+          window.PromoBulk.setAccountContext(ctx);
+        }
+      } catch (e) {}
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,758 @@
+MAPEAMENTO ATUALIZADO (TXT) — DAVANTTI API
+Versão: 2026-01-13 (inclui nova feature “Analise IA / Análise de Anúncio”)
+Obs: este documento substitui o seu mapeamento anterior, mantendo o mesmo “estilo” e adicionando/ajustando:
+- OAuth Mercado Livre (PKCE + state no DB) + seleção de conta (cookie httpOnly meli_conta_id)
+- Multi-empresa (empresas + empresa_usuarios) e modo MASTER (admin_master) com listagem global
+- Admin Panel (telas em /admin/*) com sidebar única e páginas CRUD por tabela
+- Migrações (db/migrate.js) com tabela migracoes para histórico
+- Backup (export/import JSON) em /admin/backup (MASTER ONLY)
+
+✅ NOVA MODIFICAÇÃO (2025-12-29)
+- NOVO middleware: middleware/ensurePermission.js
+  • níveis atuais: padrao | admin | master (master == admin_master)
+  • permite reutilizar gates admin-only e master-only em qualquer rota HTML/API
+  • HTML (GET): redirect /nao-autorizado
+  • API/fetch: 403 JSON { ok:false, error, redirect:'/nao-autorizado' }
+
+- Proteção adicional da VIEW (HTML) de exclusão:
+  • GET /excluir-anuncio (htmlRoutes) agora usa ensurePermission.requireAdmin()
+    -> usuário padrao ao clicar no card será redirecionado para /nao-autorizado
+
+- API de exclusão continua protegida no prefixo:
+  • app.use('/api/excluir-anuncio', ensurePermission.requireAdmin(), excluirAnuncioRoutes)
+
+
+================================================================================
+0) ✅ NOVO — Dashboard (Projeção do Mês) + Ads (atribuído) + Orgânico (estimado)
+
+Objetivo
+Dashboard inicial do app com:
+• Total do mês (vendas)
+• Projeção do mês (ritmo atual)
+• Ads (atribuído) (quando disponível)
+• Orgânico (estimado) = Total − Ads
+• Ritmo dia a dia (sparkline/barras) + KPIs (pedidos, unidades, ticket)
+• Botão “Atualizar” + chips “Período” e “Dia”
+• Observação de Ads no alert (quando indisponível)
+
+Rotas (HTML + API) conforme seu setup atual
+/ (raiz do projeto)
+├─ index.js
+│ ├─ (HTML) GET /dashboard -> HtmlController.servirDashboard
+│ │ - servido via routes/htmlRoutes.js
+│ │
+│ ├─ (API) prefixo dashboard
+│ │ - app.use('/api/dashboard', dashboardRoutes) (ou equivalente)
+│ │
+│ └─ Proteções herdadas do pipeline do app (sem admin-only por padrão)
+│ ensureAuth -> ensureAccount -> authMiddleware
+
+├─ routes/
+│ ├─ htmlRoutes.js
+│ │ • GET /dashboard -> HtmlController.servirDashboard (noCache)
+│ │ • (opcional) pode aplicar ensurePermission.requireAdmin() se quiser restringir
+│ │
+│ └─ dashboardRoutes.js ✅ (rota atual enviada por você)
+│ • GET /api/dashboard/summary?period=YYYY-MM (opcional)
+│ -> DashboardController.summary
+
+├─ controllers/
+│ ├─ HtmlController.js ✅
+│ │ • servirDashboard -> envia views/dashboard.html
+│ │ • (outros helpers antigos permanecem)
+│ │
+│ └─ DashboardController.js ✅
+│ • summary(req,res)
+│ - calcula período atual ou usa query period
+│ - agrega pedidos pagos/confirmados do mês
+│ - monta totais + série diária
+│ - (Ads) tenta buscar atribuição (quando disponível) e seta flags
+│ - responde JSON consumido pelo front do dashboard
+
+├─ views/
+│ └─ dashboard.html ✅
+│ • Layout com chips, cards e painel “Ritmo do mês”
+│ • IDs principais usados pelo JS:
+│ dash-period, dash-day, dash-refresh
+│ dash-total, dash-projected, dash-avg
+│ dash-ads, dash-ads-pill, dash-organic
+│ dash-orders, dash-units, dash-ticket
+│ dash-sparkline, dash-spark-empty
+│ dash-progress-fill, dash-progress-meta
+│ dash-alert, dash-formula-hint
+│
+└─ public/
+├─ js/dashboard.js ✅
+│ • carregarDashboard()
+│ - fetch do endpoint do dashboard (conforme sua implementação)
+│ - atualiza textos/valores e chama renderSparkline()
+│
+│ • ✅ IMPORTANTE (bugfix aplicado): renderSparkline() existe no mesmo arquivo
+│ - evita erro “renderSparkline is not defined”
+│
+│ • (Conta atual + trocar conta + status token + notificações) permanecem
+│
+└─ css/dashboard.css ✅
+• estilos do layout do dashboard (cards, chips, painel, sparkline)
+
+Obs importante (rota do front x rota da API)
+
+Seu JS pode estar chamando um endpoint tipo /api/dashboard/monthly-sales.
+✅ Porém sua rota atual confirmada é: GET /api/dashboard/summary.
+Recomendo padronizar o fetch do dashboard para bater em /api/dashboard/summary
+(mantendo compat se existir alias/rota antiga).
+================================================================================
+1) Publicidade/Product ADS
+================================================================================
+
+/ (raiz do projeto)
+├─ index.js
+│  └─ registra routes/publicidadeRoutes.js
+│
+├─ routes/
+│  ├─ publicidadeRoutes.js
+│  │  • GET /publicidade                               -> abre a tela (view)
+│  │  • GET /api/publicidade/product-ads/campaigns
+│  │  • GET /api/publicidade/product-ads/campaigns/:id/items
+│  │  • GET /api/publicidade/product-ads/metricas-diarias
+│  │  └─ chama PublicidadeController
+│  └─ ...
+│
+├─ controllers/
+│  ├─ PublicidadeController.js
+│  │  • listarCampanhas(req,res)       -> ProductAdsService.listarCampanhas()
+│  │  • listarItensCampanha(req,res)   -> ProductAdsService.listarItensCampanha()
+│  │  • metricasDiarias(req,res)       -> ProductAdsService.metricasDiarias()
+│  │  └─ responde JSON para o front
+│  └─ ...
+│
+├─ services/
+│  ├─ productAdsService.js             # lógica completa de Product Ads
+│  └─ tokenService.js / ml-auth.js     # suporte de token ML
+│
+├─ views/
+│  ├─ publicidade.ejs                  # Tela “Painel de Product Ads”
+│  └─ ...
+│
+└─ public/
+   ├─ js/publicidade.js
+   └─ css/publicidade.css + css globais
+
+================================================================================
+2) Produtos / Validar dimensões
+================================================================================
+
+/ (raiz do projeto)
+├─ index.js
+│  ├─ app.use(routes/validarDimensoesRoutes.js)
+│  └─ GET /validar-dimensoes -> view HTML
+│
+├─ routes/
+│  └─ validarDimensoesRoutes.js
+│     • POST /api/validar-dimensoes/analisar-item -> ValidarDimensoesController.analisarItem()
+│
+├─ controllers/
+│  └─ ValidarDimensoesController.js
+│     • analisarItem(req,res) -> ValidarDimensoesService.analisarUm(mlb, opts)
+│
+├─ services/
+│  └─ validarDimensoesService.js
+│     • authFetch c/ renovação (TokenService)
+│     • parseDimensions()
+│     • analisarUm()
+│
+├─ views/
+│  └─ validar-dimensoes.html
+│
+└─ public/
+   ├─ js/validar-dimensoes.js
+   └─ css/validar-dimensoes.css (+ dashboard.css)
+
+===============================================================================
+3) Produtos Estratégicos (Preço Original / Preço Promo / % calculada no FRONT)
+===============================================================================
+
+/ (raiz do projeto)
+├─ index.js
+│ ├─ app.use(estrategicosRoutes)
+│ └─ GET /estrategicos
+│ -> views/estrategicos.html
+│ -> carrega /js/estrategicos.js + /css/estrategicos.css
+│
+├─ routes/estrategicosRoutes.js
+│ ├─ (opcional) middleware de conta:
+│ │ • ensureAccount (cookie meli_conta_id) -> res.locals.mlCreds.meli_conta_id + access_token
+│ │
+│ ├─ LISTA / CRUD
+│ │ • GET /api/estrategicos -> EstrategicosController.list
+│ │ • POST /api/estrategicos -> EstrategicosController.upsert (409 DUPLICATE_MLB)
+│ │ • PUT /api/estrategicos/:id -> EstrategicosController.update (atualiza só promo_price)
+│ │ • DELETE /api/estrategicos/:mlb -> EstrategicosController.remove (compat por MLB)
+│ │ • DELETE /api/estrategicos/id/:id -> EstrategicosController.removeById
+│ │
+│ ├─ IMPORT/REPLACE (CSV)
+│ │ • POST /api/estrategicos/replace -> EstrategicosController.replace
+│ │ -> insere apenas novos (report.skipped_existing)
+│ │ -> remove_missing (opcional)
+│ │
+│ ├─ SYNC (Atualizar do Mercado Livre)
+│ │ • POST /api/estrategicos/:mlb/sync -> EstrategicosController.syncByMlb
+│ │ • POST /api/estrategicos/id/:id/sync -> EstrategicosController.syncOne
+│ │ • POST /api/estrategicos/sync -> EstrategicosController.syncAll (opcional ids/limit)
+│ │ -> busca item no ML + Prices API
+│ │ -> atualiza: name, listing_status, original_price, percent_applied, status, last_synced_at
+│ │
+│ ├─ APLICAR PROMOÇÃO
+│ │ • POST /api/estrategicos/apply -> EstrategicosController.apply
+│ │ -> calcula % a aplicar via (original_price do DB) vs (promo_price enviado)
+│ │ -> CriarPromocaoService.aplicarDescontoUnico(mlb, percent)
+│ │ -> atualiza DB: promo_price, percent_applied (quando sucesso), status
+│ │
+│ ├─ BULK (Selecionados / Selecionar Todos)
+│ │ • POST /api/estrategicos/bulk/sync -> EstrategicosController.bulkSync { all?/ids?/mlbs?/limit? }
+│ │ • POST /api/estrategicos/bulk/delete -> EstrategicosController.bulkDelete { all?/confirm_all?/ids?/mlbs? }
+│ │ -> proteção: all exige confirm_all
+│
+├─ controllers/EstrategicosController.js
+│ ├─ DB: tabela anuncios_estrategicos (por meli_conta_id)
+│ ├─ Helpers:
+│ │ • ensureContaId(res) / getAccessToken(req,res)
+│ │ • fetchItemBasics() -> GET /items/{mlb}?attributes=...
+│ │ • fetchPromoFromPricesApi() -> GET /items/{mlb}/prices
+│ │ • syncAndPersistOne() -> persiste name/status/original_price/percent_applied...
+│ │
+│ ├─ Endpoints:
+│ │ • list / upsert / update / remove / removeById
+│ │ • replace (insere novos + report)
+│ │ • syncByMlb / syncOne / syncAll
+│ │ • apply (calcula % e chama CriarPromocaoService)
+│ │ • bulkSync / bulkDelete
+│
+├─ services/criarPromocaoService.js
+│ └─ aplicarDescontoUnico(mlb, percentToApply, options)
+│
+├─ views/estrategicos.html
+│ ├─ Tabela com checkbox por linha + checkbox no header (seleciona só a página)
+│ ├─ Ações: Selecionar todos (global) / Limpar / Atualizar selecionados / Aplicar / Excluir
+│ ├─ NOVO: (planejado) campo de busca por MLB
+│ └─ DOM ids principais:
+│ tbodyStrategicos, chkSelectAllRows, btnSelectAllGlobal, btnClearSelection,
+│ btnSyncSelected, btnDeleteSelected, btnApplySelected, summarySelected, summaryTotal
+│
+└─ public/css/estrategicos.css
+└─ AJUSTE: nome do produto pode virar 2 linhas (line-clamp: 2) para reduzir corte e abrir espaço
+└─ public/js/estrategicos.js
+├─ loadRows() -> GET /api/estrategicos -> renderTable()
+├─ Seleção:
+│ • checkbox header = página
+│ • Selecionar todos global = selectedAll + excludedMlbs
+├─ computePct(original, promo) -> % calculada (somente UI)
+├─ Linha:
+│ • saveRow -> PUT /api/estrategicos/:id
+│ • syncRow -> POST /api/estrategicos/:mlb/sync (fallback id)
+│ • deleteRow -> DELETE /api/estrategicos/:mlb
+├─ Bulk:
+│ • handleSyncSelected -> POST /api/estrategicos/bulk/sync
+│ • handleDeleteSelected -> POST /api/estrategicos/bulk/delete
+│ • handleApplySelected -> POST /api/estrategicos/apply { items:[{mlb,promo_price}] }
+└─ Import CSV:
+• handleUploadProcess() -> POST /api/estrategicos/replace
+
+================================================================================
+4) Curva ABC (tempo real via API Mercado Livre)
+================================================================================
+
+/ (raiz do projeto)
+├─ index.js
+│  ├─ app.use('/api/analytics', analyticsAbcRoutes)
+│  └─ GET /ia-analytics/curva-abc -> view
+│
+├─ routes/analytics-abc-routes.js
+│  • GET /api/analytics/abc-ml/summary
+│  • GET /api/analytics/abc-ml/items
+│
+├─ views/ia-analytics/curva-abc.html
+└─ public/js/ia-analytics-curva-abc.js + public/css/curva-abc.css
+
+================================================================================
+5) Exclusão de Anúncios (único + lote, com painel de processos)
+================================================================================
+
+/ (raiz do projeto)
+├─ index.js
+│  ├─ ✅ MODIFICADO: gate por permissão (ADMIN|MASTER)
+│  │  • app.use('/api/excluir-anuncio', ensurePermission.requireAdmin(), excluirAnuncioRoutes)
+│  │
+│  └─ ✅ MODIFICADO: VIEW HTML também protegida (via htmlRoutes)
+│     • GET /excluir-anuncio -> views/excluir-anuncio.html (via htmlRoutes + ensurePermission.requireAdmin())
+│
+├─ routes/excluirAnuncioRoutes.js
+│  • DELETE /anuncios/excluir/:mlb_id
+│  • POST   /anuncios/excluir-lote
+│  • GET    /anuncios/status-exclusao/:id
+│
+├─ controllers/ExcluirAnuncioController.js
+│  • excluirUnico / excluirLote / status
+│
+├─ services/excluirAnuncioService.js
+│  • excluirUnico() / excluirLote() com authFetch + TokenService
+│
+├─ views/excluir-anuncio.html
+└─ public/js/excluir-anuncio.js + exclusao-bulk.js + jobs-panel.js
+
+================================================================================
+6) Filtro Avançado de Anúncios (COM JOBS)
+================================================================================
+
+/ (raiz do projeto)
+├─ index.js
+│  ├─ app.use('/api/analytics', analyticsFiltroAnunciosRoutes)
+│  └─ GET /filtro-anuncios -> views/filtro-anuncios.html
+│
+├─ routes/analytics-filtro-anuncios-routes.js
+│  • POST /api/analytics/filtro-anuncios/jobs
+│  • GET  /api/analytics/filtro-anuncios/jobs/:job_id
+│  • GET  /api/analytics/filtro-anuncios/jobs/:job_id/items
+│  • GET  /api/analytics/filtro-anuncios/jobs/:job_id/download.csv
+│
+├─ services/filtroAnunciosQueueService.js (Bull + Redis)
+└─ public/js/filtro-anuncios.js + views/filtro-anuncios.html
+
+================================================================================
+7) Login (JWT do app) + Autorização (Admin/Master)
+================================================================================
+
+/ (raiz do projeto)
+├─ index.js
+│  ├─ Rotas públicas:
+│  │  • GET /selecao-plataforma -> views/selecao-plataforma.html
+│  │  • GET /login             -> views/login.html
+│  │  • app.use('/api/auth', authRoutes)
+│  │
+│  ├─ app.use(ensureAuth)  # ✅ abaixo exige login (cookie auth_token)
+│  │
+│  ├─ GET /select-conta      -> views/select-conta.html
+│  ├─ GET /vincular-conta    -> views/vincular-conta.html
+│  ├─ GET /nao-autorizado    -> página 403
+│  │
+│  ├─ (Admin HTML) /admin/*  -> gate MASTER (admin_master)
+│  └─ (App) app.use(ensureAccount) -> exige conta ML selecionada (meli_conta_id)
+│
+├─ routes/authRoutes.js
+│  • POST /api/auth/login
+│  • POST /api/auth/logout
+│  • GET  /api/auth/me
+│
+├─ middleware/ensureAuth.js
+│  • valida JWT do cookie auth_token
+│  • injeta req.user/res.locals.user
+│  • HTML: redirect /login
+│  • API: 401 JSON (ou via ensureAuthApi)
+│
+└─ tabelas base:
+   • usuarios(id, nome, email, senha_hash, nivel, criado_em, ultimo_login_em)
+   • niveis: usuario | admin | admin_master (MASTER)
+
+FULL • Produtos Fulfillment (ATUAL)
+(sem alterações)
+
+================================================================================
+8) SISTEMA NOVO — OAuth Mercado Livre + Seleção de Conta (novo fluxo)
+================================================================================
+(sem alterações, mantém a seção inteira como está no seu texto)
+- ensureAuth -> ensureAccount -> authMiddleware -> rotas protegidas
+
+================================================================================
+9) Select Conta (frontend) — modo MASTER + paginação/filtros
+================================================================================
+(sem alterações)
+
+================================================================================
+10) Criar Promoção (Central de Promoções + aplicar/remover + jobs)
+================================================================================
+(sem alterações)
+
+================================================================================
+11) ✅ NOVO — Analise IA (IA • Análise de Anúncio) — OVERVIEW + Dependências
+================================================================================
+
+Objetivo
+Tela “IA • Análise de Anúncio” no padrão do EDITAR/Full:
+• input MLB (pega o primeiro MLB de um texto colado)
+• janela de dias (7/30/60/90 ou livre via select)
+• CEP opcional para simular frete
+• bloco “Buscar anúncio + Foto do produto” (grid 2 colunas)
+• “Informações” unifica Resumo + detalhes (mini-kpis + kv)
+• tabs internas: Detalhes | Diagnóstico | JSON
+• copiar JSON (topo e também na aba JSON)
+• tudo protegido (ninguém acessa sem estar logado + conta selecionada + token ML válido)
+
+Proteções (padrão do seu index.js)
+✅ ensureAuth (JWT do app) aplicado globalmente abaixo das rotas públicas mínimas
+✅ ensureAccount (conta ML selecionada via cookie meli_conta_id)
+✅ authMiddleware (token ML válido/renovável) para rotas do app
+
+Observação
+Como o htmlRoutes está montado DEPOIS do ensureAccount + authMiddleware,
+a página /analise-ia também exige conta selecionada e token ML (além do login JWT).
+
+/ (raiz do projeto)
+├─ index.js
+│ ├─ (PÚBLICO mínimo)
+│ │ • GET /selecao-plataforma
+│ │ • GET /login
+│ │ • GET /cadastro
+│ │ • GET /nao-autorizado
+│ │ • GET /api/system/health (healthcheck deploy)
+│ │ • /api/auth/* (login/logout/me)
+│ │
+│ ├─ (🔒 A PARTIR DAQUI: exige JWT)
+│ │ • app.use(ensureAuth)
+│ │
+│ ├─ (OAuth ML / seleção de conta — ainda dentro do JWT)
+│ │ • /api/meli/* (vincular contas)
+│ │ • GET /select-conta
+│ │ • /api/account/*
+│ │
+│ ├─ (🔒 Exigir conta selecionada)
+│ │ • app.use(ensureAccount)
+│ │
+│ ├─ (🔒 Exigir token ML válido)
+│ │ • app.use(authMiddleware)
+│ │
+│ ├─ (HTML da feature)
+│ │ • montado via htmlRoutes
+│ │ • GET /analise-ia -> views/analise-ia.html
+│ │
+│ └─ (API da feature)
+│ • app.use('/api/analise-anuncios', AnaliseAnuncioRoutes)
+│ -> OBS: manter esse nome /api/analise-anuncios mesmo que a tela se chame /analise-ia (UI),
+│ para evitar colisão com outras features.
+
+Arquivos principais e dependentes
+├─ routes/AnaliseAnuncioRoutes.js ✅
+│ • router.use(Cache-Control: no-store)
+│ • GET /api/analise-anuncios/overview/:mlb
+│   - query: days=30 (default), zip_code=xxxxx-xxx (opcional)
+│   - chama AnaliseAnuncioController.overview()
+│ • GET /api/analise-anuncios/ping
+│ • GET /api/analise-anuncios/routes (debug)
+│   - se middleware/ensurePermission.js existir:
+│     protege com ensurePermission.requireMaster()
+│   - senão: só expõe fora de produção
+│
+├─ controllers/AnaliseAnuncioController.js ✅
+│ • overview(req,res)
+│   - valida mlb (MLB\d+)
+│   - lê days (1..365) e zip_code (opcional)
+│   - exige accessToken via req.ml.accessToken (injetado pelo authMiddleware)
+│   - chama analiseAnuncioService.getOverview({ mlb, accessToken, days, zip_code })
+│   - retorna { ok:true, ...data } ou { ok:false, error, message }
+│
+├─ services/analiseAnuncioService.js ✅
+│ • getOverview({ mlb, accessToken, days, zip_code })
+│ - chama endpoints oficiais do Mercado Livre:
+│   1) GET /items/:mlb
+│   2) visitas (fallbacks):
+│      - GET /items/:mlb/visits?date_from=...&date_to=...
+│      - GET /visits/items?ids=:mlb&date_from=...&date_to=...
+│      - GET /visits/items?ids=:mlb (fallback simples)
+│   3) frete (se zip_code informado):
+│      - GET /items/:mlb/shipping_options?zip_code=...
+│      - (fallback) /items/:mlb/shipping_options/free?zip_code=...
+│   4) vendedor:
+│      - GET /users/:seller_id
+│
+│ - Normalizações do retorno:
+│   • is_premium = listing_type_id == gold_pro (ou gold_premium)
+│   • seller.location = cidade/estado (quando disponível)
+│   • shipping.cost = menor custo encontrado nas opções
+│
+│ - ✅ Foto nítida (evitar thumb borrada):
+│   • pictures[] vem de item.pictures[].secure_url/url
+│   • thumbnail prioriza pictures[0] e cai em item.thumbnail como fallback
+│
+│ - Retorno consolidado esperado pelo front:
+│   {
+│     ok: true,
+│     summary: { id,title,status,permalink,category_id,condition,currency_id,
+│               price,available_quantity,sold_quantity,
+│               listing_type_id,catalog_listing,is_premium,
+│               date_created,last_updated,thumbnail,pictures[] },
+│     visits: { total,date_from,date_to },
+│     shipping: { zip_code,free_shipping,cost,logistic_type,mode },
+│     seller: { seller_id,nickname,location, (opcional) official_store_id/official_store },
+│     seller_reputation: { level_id,power_seller_status,transactions,metrics... },
+│     meta: { fetched_at },
+│     raw: { item,seller,visits,shipping }
+│   }
+│
+├─ routes/htmlRoutes.js ✅
+│ • GET /analise-ia -> views/analise-ia.html
+│
+├─ views/analise-ia.html ✅
+│ • Layout: mesmo padrão do editar (top header + chips + card-panel)
+│ • Card principal:
+│   - Coluna esquerda: MLB + janela dias + CEP + botões
+│   - Coluna direita: Foto do produto (bloco fixo)
+│ • Bloco “Informações” unificado:
+│   - mini-kpis (Resumo)
+│   - lista kv (detalhes)
+│ • Tabs internas:
+│   - Detalhes
+│   - Diagnóstico
+│   - JSON (<pre> + copiar)
+│
+└─ public/
+   ├─ js/analise-ia.js ✅
+   │ • API_BASE = /api/analise-anuncios
+   │ • loadOverview() -> GET /overview/:mlb?days=&zip_code=
+   │ • parseFirstMlb(): pega o 1º MLB encontrado em texto colado
+   │ • render:
+   │   - renderSummary() (mini-kpis + pills + KPIs)
+   │   - renderInfoList() (kv unificado)
+   │   - renderPhoto() (usa summary.thumbnail/pictures[0])
+   │   - renderDiagnostic()
+   │   - renderJson()
+   │ • copiar JSON: btnCopyJson + btnCopyJson2
+   │ • tabs internas: .inner-tab + .pane (padrão editar)
+   │
+   └─ css/analise-ia.css ✅
+     • baseado no editar-anuncio.css (card-panel, chips, inner-tabs, json-pre)
+     • ajustes específicos:
+       - .aa-search-grid: busca + foto lado a lado
+       - .aa-photo-wrap: bloco fixo (não “explode” quando carrega imagem)
+       - mini-kpis para resumo
+       - aa-kv para pares chave/valor
+       - evitar conflito bootstrap: usar .aa-row em vez de .row
+
+Notas de segurança/permissão:
+- A tela /analise-ia é “app normal” (não admin-only por padrão).
+- Proteção vem do pipeline:
+  ensureAuth (JWT app) -> ensureAccount (cookie meli_conta_id) -> authMiddleware (token ML válido)
+- Se quiser restringir por nível, aplicar ensurePermission.requireAdmin() no GET /analise-ia (htmlRoutes).
+
+================================================================================
+(Seções 1–10 permanecem iguais ao seu texto; foi adicionado o item 11 no final)
+================================================================================
+================================================================================
+12) ✅ NOVO — Prazo de Produção / Fabricação (MANUFACTURING_TIME) — Individual + Lote + Status
+================================================================================
+
+Objetivo
+Permitir atualizar o “prazo de fabricação/produção” exibido ao comprador como “fabricado em X dias”.
+No Mercado Livre, este valor costuma ser representado por um sale_term do item:
+• MANUFACTURING_TIME (dias)
+
+Proteções (padrão do seu pipeline)
+✅ ensureAuth (JWT do app) aplicado globalmente abaixo das rotas públicas mínimas
+✅ ensureAccount (conta ML selecionada via cookie meli_conta_id)
+✅ authMiddleware (token ML válido/renovável) para rotas do app
+
+Observação importante (rota do front x rota do backend)
+Seu front (prazo.js) originalmente chamava /api/prazo/update, mas as rotas reais foram padronizadas SEM prefixo /api:
+✅ POST /anuncio/prazo-producao
+✅ POST /anuncios/prazo-producao-lote
+✅ GET  /anuncios/status-prazo-producao/:id
+
+/ (raiz do projeto)
+├─ index.js
+│ ├─ (onde plugar) após app.use(authMiddleware)
+│ │ • app.use(prazoProducaoRoutes)
+│ │
+│ └─ Proteções herdadas do pipeline do app:
+│ ensureAuth -> ensureAccount -> authMiddleware
+│
+├─ routes/
+│ └─ prazoProducaoRoutes.js ✅
+│ • POST /anuncio/prazo-producao
+│   -> PrazoProducaoController.setPrazoProducaoSingle
+│ • POST /anuncios/prazo-producao-lote
+│   -> PrazoProducaoController.setPrazoProducaoLote
+│ • GET  /anuncios/status-prazo-producao/:id
+│   -> PrazoProducaoController.statusPrazoProducao
+│
+├─ controllers/
+│ └─ PrazoProducaoController.js ✅
+│ • setPrazoProducaoSingle(req,res)
+│   - input esperado: { mlb_id, days }
+│   - valida mlb (MLB\d+) e days (int >= 0)
+│   - aplica alteração no item para o sale_term MANUFACTURING_TIME
+│   - retorna { ok:true, mlb_id, days, message }
+│
+│ • setPrazoProducaoLote(req,res)
+│   - input esperado: { mlb_ids:[], days, delay_ms? }
+│   - dispara processo em lote e retorna { ok:true, process_id }
+│   - respeita delay para evitar rate-limit
+│
+│ • statusPrazoProducao(req,res)
+│   - retorna status do lote para monitoramento/painel:
+│     { id, status, progresso, total_anuncios, processados, sucessos, erros, iniciado_em, concluido_em? }
+│
+├─ services/
+│ └─ (camada esperada) PrazoProducaoService.js (ou lógica dentro do controller)
+│ • Responsável por chamar a API oficial do Mercado Livre:
+│   - GET /items/:mlb (ler item e sale_terms atuais)
+│   - PUT /items/:mlb (atualizar sale_terms incluindo MANUFACTURING_TIME)
+│ • Usa token em req.ml.accessToken (injetado pelo authMiddleware)
+│ • Mantém consistência de sale_terms (preserva outros termos e substitui apenas MANUFACTURING_TIME)
+
+└─ public/
+   ├─ js/prazo.js ✅
+   │ • API_SINGLE = /anuncio/prazo-producao
+   │ • API_BULK_LEGACY = /anuncios/prazo-producao-lote
+   │ • status: /anuncios/status-prazo-producao/:id
+   │ • funções expostas: prazoSingle(), prazoBulk(), verificarStatus(), limparSingle(), limparBulk()
+   │ • notificações (toast) e resultado em painel
+   │
+   └─ (opcional) prazo-bulk.js ✅ (se implementar JobsPanel como no remover/excluir)
+      • enqueue em painel com badge da conta (JobsPanel)
+      • status via GET /anuncios/status-prazo-producao/:id
+
+Notas de permissão (opcional)
+- Por padrão é “app normal” (não admin-only).
+- Se quiser restringir atualização de prazo apenas para ADMIN|MASTER:
+  • aplicar ensurePermission.requireAdmin() no mount dessas rotas (index.js) OU no próprio router.
+✅ NOVA MODIFICAÇÃO (2026-01-15) — JARDINAGEM (Unitário + Lote + CSV Resultado)
+
+Objetivo
+Automatizar “jardinagem” de anúncios do Mercado Livre com modos:
+• CLOSE_RELIST (fecha e relista)
+• PAUSE_RELIST (pausa e relista; fallback fecha e relista se necessário)
+• ONLY_CLOSE (apenas fecha)
+• ONLY_PAUSE (apenas pausa)
+• CLONE_NEW_CLOSE_OLD (SOMENTE unitário: cria novo anúncio clonando o antigo e fecha o antigo)
+
+No lote, ao concluir, disponibiliza botão “Baixar Resultado” gerando CSV (client-side) com:
+mlb_old, mlb_new, status(success|error)
+
+No unitário, o resultado passa a exibir explicitamente o novo MLB quando existir.
+
+Proteções (padrão do seu pipeline)
+✅ ensureAuth (JWT app)
+✅ ensureAccount (cookie meli_conta_id)
+✅ authMiddleware (token ML válido/renovável em req.ml.accessToken)
+(sem admin-only por padrão; se quiser restringir, aplicar ensurePermission.requireAdmin() no mount/HTML)
+
+/ (raiz do projeto)
+├─ index.js
+│ ├─ (onde plugar) app.use('/api/jardinagem', jardinagemRoutes)
+│ └─ pipeline já aplicado no app:
+│ ensureAuth -> ensureAccount -> authMiddleware -> routes
+│
+├─ routes/
+│ └─ jardinagemRoutes.js ✅
+│ • POST /api/jardinagem/item
+│ -> JardinagemController.single
+│
+│ • POST /api/jardinagem/single (alias)
+│ -> JardinagemController.single
+│
+│ • POST /api/jardinagem/bulk ✅ (rota real do backend)
+│ -> JardinagemController.bulk
+│
+│ • GET /api/jardinagem/status/:id
+│ -> JardinagemController.status
+│
+│ • GET /api/jardinagem/ping
+│ -> { ok:true, feature:"jardinagem" }
+│
+├─ controllers/
+│ └─ JardinagemController.js ✅
+│ • single(req,res)
+│ - valida mlb (MLB\d+)
+│ - valida mode (inclui CLONE_NEW_CLOSE_OLD)
+│ - se mode == CLONE_NEW_CLOSE_OLD:
+│ • aceita clone_overrides { price?, quantity?, title? }
+│ - chama JardinagemService.processSingle({ mlb, mode, clone_overrides, req })
+│ - retorna JSON do resultado (inclui ids novos quando aplicável)
+│
+│ • bulk(req,res)
+│ - valida lista mlbs (dedup + valida MLB)
+│ - valida mode (SEM CLONE_NEW_CLOSE_OLD)
+│ - cria process_id e guarda snapshot em memória (processosJardinagem[processId])
+│ - dispara JardinagemService.processBulk({ mlbs, mode, processId, procRef, delayMs, req })
+│ - responde imediato:
+│ { ok:true, process_id, message }
+│
+│ • status(req,res)
+│ - retorna snapshot do processo em memória, incluindo:
+│ { id,status,mode,total,processados,sucessos,erros,progresso,resultados[] }
+│
+├─ services/
+│ └─ jardinagemService.js ✅
+│ • resolveAccessToken(req)
+│ - pega req.ml.accessToken (padrão do app)
+│ - fallback: TokenService.renovarTokenSeNecessario()
+│
+│ • processSingle({ mlb, mode, clone_overrides, req })
+│ - ONLY_PAUSE: PUT /items/:mlb {status:"paused"}
+│ - ONLY_CLOSE: PUT /items/:mlb {status:"closed"}
+│ - CLOSE_RELIST:
+│ • GET /items/:mlb
+│ • garante closed
+│ • POST /items/:mlb/relist (body preserva listing_type_id + variações/qty/preço)
+│ -> retorna relisted_id (novo MLB quando existir no retorno)
+│ - PAUSE_RELIST:
+│ • GET /items/:mlb
+│ • PUT paused
+│ • tenta POST relist; se falhar, fecha e relista (fallback)
+│ -> retorna relisted_id + flag fallback_closed
+│ - CLONE_NEW_CLOSE_OLD (unitário):
+│ • GET /items/:mlb
+│ • POST /items (cria novo anúncio clonado)
+│ • copia descrição (best effort)
+│ • PUT /items/:mlb {status:"closed"} (fecha antigo)
+│ -> retorna new_id (novo MLB)
+│
+│ • processBulk({ mlbs, mode, processId, procRef, delayMs, req })
+│ - processa sequencial com delay (evita rate-limit)
+│ - SEM clone
+│ - para cada mlb adiciona procRef.resultados[]:
+│ { mlb, ok:true/false, mode, relisted_id?, error? }
+│ - status final: "concluido" (ou "erro" se quebrar fora do loop)
+│
+├─ public/
+│ ├─ js/jardinagem.js ✅ (Unitário)
+│ │ • API_SINGLE = /api/jardinagem/item
+│ │ • jardinagemSingle()
+│ │ - executa POST e renderiza resultado
+│ │ - ✅ agora exibe “Novo MLB” quando existir:
+│ │ • lê new_mlb/new_id/relisted_id (conforme retorno)
+│ │
+│ └─ js/jardinagem-bulk.js ✅ (Lote)
+│ • ✅ FIX rota:
+│ API_BULK = /api/jardinagem/bulk
+│
+│ • jardinagemBulk()
+│ - POST /api/jardinagem/bulk { mlbs, mode, delay_ms }
+│ - se retornar process_id:
+│ • monitora GET /api/jardinagem/status/:id
+│ - ao finalizar (status concluido/erro):
+│ • lê data.resultados (ou results/report fallback)
+│ • normaliza para:
+│ [{ mlb_old, mlb_new, status(success|error) }]
+│ • ✅ injeta botão “⬇️ Baixar Resultado”
+│ - gera CSV no navegador (Blob + download)
+│
+│ • verificarStatus()
+│ - ✅ considera finalizado também quando status == erro/error
+│ - ✅ se vier resultados, habilita download CSV
+│
+└─ views/
+└─ (tela existente de Jardinagem)
+• mantém o painel #resultado como container do box + botão download
+• IDs esperados:
+- #jardModeSingle, #jardMlbId, #btnJardSingle
+- #jardModeBulk, #jardMlbIds, #btnJardBulk
+- #resultado
+- (clone) #cloneOverrides, #clonePrice, #cloneQty, #cloneTitle
+
+Formato do CSV (Lote)
+• Cabeçalho: mlb_old, mlb_new, status
+• status: success | error
+• mlb_new será preenchido quando houver relist_id/new_id retornado pelo backend.
+
+Observações importantes (consistência de rotas)
+✅ Backend confirmado: POST /api/jardinagem/bulk
+⚠️ Se algum front antigo ainda chamar /api/jardinagem/lote, manter alias no router (opcional) OU atualizar o JS (feito).

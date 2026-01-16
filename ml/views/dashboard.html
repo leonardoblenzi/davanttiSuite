@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <link rel="stylesheet" href="/ml/css/dashboard.css?v=2">
+  <title>API Mercado Livre - Dashboard</title>
+
+  <!-- ✅ Opção A: JS externo único -->
+  <script src="/ml/js/dashboard.js" defer></script>
+</head>
+<body>
+  <!-- TOPO: Conta atual + Status + Trocar Conta -->
+  <header class="account-bar">
+    <div class="account-bar__left">
+      <a class="brand" href="/ml/dashboard" aria-label="DAVANTTI">
+        <img
+          src="/ml/img/davantti.png"
+          alt="DAVANTTI"
+          class="brand__logo"
+          width="170"
+          height="42"
+          decoding="async"
+          loading="eager"
+        />
+      </a>
+    </div>
+
+    <div class="account-bar__right">
+      <div class="account-bar__current">
+        <span class="lbl">Conta:</span>
+        <span id="account-current" class="val">Carregando...</span>
+      </div>
+      <button id="btn-status" class="account-bar__status" title="Ver status do token">Status</button>
+      <button id="account-switch" class="account-bar__switch" title="Trocar de conta">Trocar Conta</button>
+    </div>
+  </header>
+
+  <!-- Navegação principal com abas -->
+  <nav class="main-nav">
+    <div class="tabs">
+      <button class="nav-tab active" data-tab="dashboard">Dashboard</button>
+      <button class="nav-tab" data-tab="anuncios">Anúncios</button>
+      <button class="nav-tab" data-tab="produtos">Alterações Massivas</button>
+      <button class="nav-tab" data-tab="ia">IA & Analytics</button>
+      <button class="nav-tab" data-tab="publicidade">Publicidade</button>
+      <button class="nav-tab" data-tab="benchmarking">Benchmarking</button>
+      <button class="nav-tab" data-tab="alertas">Alertas</button>
+      <button class="nav-tab" data-tab="ml">ML</button>
+      <button class="nav-tab" data-tab="full">FULL</button>
+      <button class="nav-tab" data-tab="admin">Admin</button>
+    </div>
+  </nav>
+
+  <!-- CONTEÚDOS DAS ABAS -->
+  <main class="page-wrap">
+    <!-- DASHBOARD -->
+    <section id="tab-dashboard" class="tab-page active">
+      <div class="container">
+        <div class="dash-head">
+          <h1 class="dash-title">📈 Dashboard — Projeção do Mês</h1>
+          <div class="account-context">
+            Conta atual: <strong id="account-name-inline">Carregando...</strong>
+          </div>
+          <p class="dash-subtitle">
+            Total do mês (todas as vendas) + Ads (atribuído) + Orgânico (estimado) e projeção baseada no ritmo atual.
+          </p>
+
+          <div class="dash-actions">
+            <span class="dash-chip">
+              <span class="chip-label">Período:</span>
+              <span id="dash-period" class="chip-value">—</span>
+            </span>
+
+            <span class="dash-chip">
+              <span class="chip-label">Dia:</span>
+              <span id="dash-day" class="chip-value">—</span>
+            </span>
+
+            <button id="dash-refresh" class="btn-primary" type="button">🔄 Atualizar</button>
+          </div>
+        </div>
+
+        <div id="dash-alert" style="display:none;"></div>
+
+        <!-- Cards principais -->
+        <div class="dash-grid">
+          <div class="dash-card dash-card--highlight">
+            <div class="dash-card__top">
+              <div class="dash-card__label">Vendas do mês (Total)</div>
+              <span class="pill pill-live">LIVE</span>
+            </div>
+            <div id="dash-total" class="dash-card__value">—</div>
+            <div class="dash-card__meta">Somatório de pedidos pagos no mês.</div>
+          </div>
+
+          <div class="dash-card dash-card--highlight">
+            <div class="dash-card__top">
+              <div class="dash-card__label">Projeção do mês</div>
+              <span class="pill pill-soft" id="dash-proj-pill">estimada</span>
+            </div>
+            <div id="dash-projected" class="dash-card__value">—</div>
+            <div class="dash-card__meta">Base: (Total MTD ÷ dia atual) × dias do mês</div>
+          </div>
+
+          <div class="dash-card">
+            <div class="dash-card__top">
+              <div class="dash-card__label">Ads (atribuído)</div>
+              <span class="pill pill-soft" id="dash-ads-pill">—</span>
+            </div>
+            <div id="dash-ads" class="dash-card__value">—</div>
+            <div class="dash-card__meta">Vendas atribuídas ao Mercado Ads (quando disponível).</div>
+          </div>
+
+          <div class="dash-card">
+            <div class="dash-card__top">
+              <div class="dash-card__label">Orgânico (estimado)</div>
+              <span class="pill pill-soft">estimado</span>
+            </div>
+            <div id="dash-organic" class="dash-card__value">—</div>
+            <div class="dash-card__meta">Estimativa: Total − Ads (atribuído).</div>
+          </div>
+        </div>
+
+        <!-- Progresso do mês -->
+        <div class="dash-panel">
+          <div class="dash-panel__head">
+            <div>
+              <h3 class="dash-panel__title">📊 Ritmo do mês (dia a dia)</h3>
+              <div class="dash-panel__subtitle">Barras: vendas por dia • Hoje em verde • Dias futuros em cinza</div>
+            </div>
+            <span class="dash-chip">
+              <span class="chip-label">Média/dia:</span>
+              <span id="dash-avg" class="chip-value">—</span>
+            </span>
+          </div>
+
+          <div class="dash-progress">
+            <div class="dash-progress__bar">
+              <div id="dash-progress-fill" class="dash-progress__fill"></div>
+            </div>
+            <div id="dash-progress-meta" class="dash-progress__meta">—</div>
+          </div>
+
+          <div class="spark-wrap">
+            <div id="dash-sparkline" class="sparkline"></div>
+            <div id="dash-spark-empty" class="spark-empty" style="display:none;">
+              Sem dados suficientes ainda pra montar o gráfico 😭
+            </div>
+          </div>
+
+          <div class="dash-panel__foot">
+            <div class="formula-box">
+              <div class="formula-box__title">🧮 Fórmula usada</div>
+              <div class="formula-box__line">
+                <code>( total_vendas_mês_atual / dia_atual ) × dias_do_mês</code>
+              </div>
+              <div id="dash-formula-hint" class="formula-box__hint">—</div>
+            </div>
+
+            <div class="mini-kpis">
+              <div class="mini-kpi">
+                <span class="mini-kpi__label">Pedidos (mês)</span>
+                <span id="dash-orders" class="mini-kpi__value">—</span>
+              </div>
+              <div class="mini-kpi">
+                <span class="mini-kpi__label">Unidades (mês)</span>
+                <span id="dash-units" class="mini-kpi__value">—</span>
+              </div>
+              <div class="mini-kpi">
+                <span class="mini-kpi__label">Ticket médio</span>
+                <span id="dash-ticket" class="mini-kpi__value">—</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ✅ ANÚNCIOS -->
+    <section id="tab-anuncios" class="tab-page">
+      <div class="container">
+        <h1>🧾 Anúncios</h1>
+        <p class="subtitle">Ferramentas focadas em diagnóstico e análise de anúncios.</p>
+
+        <div class="endpoints">
+          <div class="endpoint">
+            <h3>✏️ Editar Anúncio <span class="status active">Ativo</span></h3>
+            <p>
+              Carregue um MLB, rode diagnóstico de permissões e prepare a base para testar conteúdo enriquecido
+              (ex.: descrição v2 / PDP).
+            </p>
+            <a href="/ml/editar-anuncio">✏️ Acessar Editor</a>
+          </div>
+
+          <div class="endpoint">
+            <h3>📊 Análise de Anúncio (IA) <span class="status active">Ativo</span></h3>
+            <p>
+              Pesquise um MLB e veja os dados no estilo “página do ML”: vendidos, estoque, visitas (janela),
+              premium, catálogo, frete (CEP), vendedor e reputação.
+            </p>
+            <a href="/ml/analise-ia">📊 Abrir Análise (IA)</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PRODUTOS -->
+    <section id="tab-produtos" class="tab-page">
+      <div class="container">
+        <h1>🛍️ Produtos</h1>
+        <p class="subtitle">Ações de promoção para anúncios (MLB).</p>
+        <div class="endpoints">
+
+          <div class="endpoint promotion">
+            <h3>🎯 Criar Promoções <span class="status active">Ativo</span></h3>
+            <p>Crie promoções unitárias ou em massa com diferentes tipos de campanhas.</p>
+            <a href="/ml/criar-promocao">🚀 Acessar Interface</a>
+          </div>
+
+          <div class="endpoint">
+            <h3>🗑️ Remover Promoções <span class="status active">Ativo</span></h3>
+            <p>Remova promoções de anúncios individualmente ou em lote.</p>
+            <a href="/ml/remover-promocao">🔧 Acessar Interface</a>
+          </div>
+
+          <!-- ✅ NOVO CARD -->
+          <div class="endpoint">
+            <h3>⏱️ Prazo <span class="status active">Novo</span></h3>
+            <p>Altere o prazo (dias) do anúncio, unitário ou em lote por MLB.</p>
+            <a href="/ml/prazo">⏱️ Acessar Interface</a>
+          </div>
+          <!-- ✅ /NOVO CARD -->
+
+          <div class="endpoint">
+            <h3>🗑️ Exclusão de Anúncios <span class="status active">Ativo</span></h3>
+            <p>Exclua anúncios individualmente ou em lote utilizando MLBs válidos.</p>
+            <a href="/ml/excluir-anuncio">🔧 Acessar Interface</a>
+          </div>
+
+          <div class="endpoint">
+            <h3>📦 Validar dimensões <span class="status active">Ativo</span></h3>
+            <p>Consulte as dimensões cadastradas nos anúncios (MLB) e exporte tudo em CSV.</p>
+            <a href="/ml/validar-dimensoes">📦 Acessar Interface</a>
+          </div>
+
+          <div class="endpoint">
+            <h3>⭐ Produtos Estratégicos <span class="status active">Novo</span></h3>
+            <p>
+              Gerencie a lista de anúncios estratégicos por conta, defina percentuais-padrão
+              e aplique promoções recorrentes sem usar planilhas externas.
+            </p>
+            <a href="/ml/estrategicos">⭐ Gerenciar Estratégicos</a>
+          </div>
+
+          <div class="endpoint">
+            <h3>🧮 Filtro Avançado de Anúncios <span class="status active">Novo</span></h3>
+            <p>
+              Filtre anúncios por período, vendas, status, promo ativa, Ads, visitas, cliques e impressões.
+              Visualize em tabela e exporte resultados.
+            </p>
+            <a href="/ml/filtro-anuncios">🧮 Acessar Interface</a>
+          </div>
+
+          <!-- ✅ NOVO CARD — Jardinagem -->
+<div class="endpoint">
+  <h3>🪴 Jardinagem <span class="status active">Novo</span></h3>
+  <p>
+    Renove anúncios por MLB: pausar, encerrar e relistar.
+    No modo unitário, também permite clonar manualmente.
+  </p>
+  <a href="/ml/jardinagem">🪴 Acessar Interface</a>
+</div>
+<!-- ✅ /NOVO CARD -->
+
+
+        </div>
+      </div>
+    </section>
+
+    <!-- IA & ANALYTICS -->
+    <section id="tab-ia" class="tab-page">
+      <div class="container">
+        <h1>🤖 IA & Analytics</h1>
+        <p class="subtitle">Ferramentas de análise e pesquisa.</p>
+        <div class="endpoints">
+          <div class="endpoint search">
+            <h3>🔎 Pesquisa em Descrições <span class="status active">Ativo</span></h3>
+            <p>Busque texto específico nas descrições de múltiplos MLBs.</p>
+            <a href="/ml/pesquisa-descricao">🔍 Iniciar Pesquisa</a>
+          </div>
+
+          <div class="endpoint keyword-analytics">
+            <h3>🧠 Palavras-chave & Tendências <span class="status active">Ativo</span></h3>
+            <p>Descubra palavras relacionadas e tendências (simulado).</p>
+            <a href="/ml/keyword-analytics">📊 Acessar Análise</a>
+          </div>
+
+          <div class="endpoint curva-abc">
+            <h3>📊 Curva ABC <span class="status active">Ativo</span></h3>
+            <p>Top 5 A/B/C por período e multicontas. Clique nos cards para filtrar.</p>
+            <a href="/ml/ia-analytics/curva-abc">📊 Acessar Curva ABC</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PUBLICIDADE -->
+    <section id="tab-publicidade" class="tab-page">
+      <div class="container">
+        <h1>📣 Publicidade</h1>
+        <p class="subtitle">Ferramentas para análise e gestão das campanhas de Product Ads.</p>
+
+        <div class="endpoints">
+          <div class="endpoint">
+            <h3>📊 Product Ads <span class="status active">Ativo</span></h3>
+            <p>
+              Visualize o ranking de campanhas, métricas completas (ACOS, TACOS, cliques, impressões,
+              receita, retornos, etc.) e baixe os dados em CSV.
+            </p>
+            <a href="/ml/publicidade">🚀 Acessar Product Ads</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- BENCHMARKING -->
+    <section id="tab-benchmarking" class="tab-page">
+      <div class="container">
+        <h1>📊 Benchmarking</h1>
+        <p class="subtitle">Em breve: compare desempenho com concorrentes.</p>
+        <div class="placeholder">Sem conteúdo por enquanto.</div>
+      </div>
+    </section>
+
+    <!-- ALERTAS -->
+    <section id="tab-alertas" class="tab-page">
+      <div class="container">
+        <h1>🚨 Alertas</h1>
+        <p class="subtitle">Em breve: notificações de estoque, preço e performance.</p>
+        <div class="placeholder">Sem conteúdo por enquanto.</div>
+      </div>
+    </section>
+
+    <!-- ML -->
+    <section id="tab-ml" class="tab-page">
+      <div class="container">
+        <h1>🟡 Mercado Livre</h1>
+        <p class="subtitle">Informações da conta e utilitários ML.</p>
+        <div class="endpoints">
+          <div class="endpoint">
+            <h3>🧭 Rotas & Debug <span class="status active">Ativo</span></h3>
+            <p>Listagem de endpoints e verificações rápidas.</p>
+            <a href="/ml/debug/routes">📊 Ver Rotas</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FULL -->
+    <section id="tab-full" class="tab-page">
+      <div class="container">
+        <h1>📦 FULL</h1>
+        <p class="subtitle">Produtos que estão no fulfillment do Mercado Livre (ML Full).</p>
+
+        <div class="endpoints">
+          <div class="endpoint">
+            <h3>🗂️ Produtos (Full) <span id="full-status-pill" class="status active">Ativo</span></h3>
+            <p>Veja os itens que estão no centro de fulfillment (estoque, preço, status, promoções ativas).</p>
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+              <span class="mini-stat">
+                <strong id="full-total-itens">—</strong>
+                <small>itens em Full</small>
+              </span>
+              <span class="mini-stat">
+                <strong id="full-total-ativos">—</strong>
+                <small>ativos</small>
+              </span>
+              <span class="mini-stat">
+                <strong id="full-total-transf">—</strong>
+                <small>em transferência</small>
+              </span>
+              <span class="mini-stat">
+                <strong id="full-total-ineleg">—</strong>
+                <small>inelegíveis</small>
+              </span>
+            </div>
+            <div style="margin-top:12px;">
+              <a class="btn-primary" href="/ml/full">🚀 Abrir Produtos (Full)</a>
+            </div>
+          </div>
+
+          <div class="endpoint">
+            <h3>📤 Exportações</h3>
+            <p>Gere relatórios CSV/XLSX dos itens sob Full. (Na página dedicada, use “Exportar CSV”.)</p>
+            <a href="/ml/full">📄 Ir para Exportar</a>
+          </div>
+        </div>
+
+        <div class="placeholder" id="full-hint" style="display:none; margin-top:8px;">
+          ℹ️ Dica: caso os totais não carreguem, finalize a configuração do endpoint <code>GET /api/full/summary</code>.
+        </div>
+      </div>
+    </section>
+
+    <!-- ADMIN -->
+    <section id="tab-admin" class="tab-page">
+      <div class="container">
+        <h1>🛡️ Admin</h1>
+        <p class="subtitle">Acesso restrito a administradores.</p>
+
+        <div class="endpoints">
+          <div class="endpoint">
+            <h3>👥 Gerenciar <span class="status active">Ativo</span></h3>
+            <p>Crie, edite, remova e gerencie o sistema.</p>
+            <a href="/ml/admin/usuarios">👥 Gerenciar Sistema</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal de Status (token) -->
+  <div id="modal-status" class="modal">
+    <div class="modal-content">
+      <div class="modal-header alt">
+        <h3>🟢 Status da Integração</h3>
+        <span class="close" onclick="fecharModalStatus()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div class="status-grid">
+          <div class="stat-mini"><h4 id="status-usuario">—</h4><p>Usuário</p></div>
+          <div class="stat-mini"><h4 id="status-token">—</h4><p>Token (preview)</p></div>
+          <div class="stat-mini"><h4 id="status-msg">—</h4><p>Mensagem</p></div>
+        </div>
+        <div class="modal-controls">
+          <button class="btn-small btn-primary" onclick="verificarToken(true)">🔍 Verificar</button>
+          <button class="btn-small btn-success" onclick="renovarToken(true)">🔄 Renovar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

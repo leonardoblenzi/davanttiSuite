@@ -1,0 +1,308 @@
+/* public/css/excluir-anuncio.css
+ * Estilo próprio da tela 🗑️ Exclusão de Anúncios
+ * ✅ Corrigido para NÃO alterar altura/posição da navbar/tabs do dashboard.css
+ * ✅ Evita “encolher” a main-nav e remove overrides de .account-bar/.main-nav
+ */
+
+/* ===== Paleta / tokens ML ===== */
+:root{
+  --ml-yellow:#ffe600;
+  --ml-blue:#3483fa;
+  --ml-dark:#333333;
+  --ml-text:#2f2f2f;
+  --ml-muted:#6b7280;
+  --ml-bg:#f5f5f5;
+  --ml-card:#ffffff;
+  --success:#2e7d32;
+  --warn:#ffca28;
+  --danger:#d32f2f;
+  --border:#e5e7eb;
+
+  /* altura total do topo do layout (account-bar + tabs)
+     use o valor do seu dashboard (normalmente 96px) */
+  --top-offset: 96px;
+}
+
+/* ✅ Reset seguro: NÃO zera margin/padding (evita quebrar header/tabs) */
+*,
+*::before,
+*::after{ box-sizing:border-box; }
+
+body{
+  margin:0;
+  font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background:var(--ml-bg);
+  color:var(--ml-text);
+}
+
+/* =========================================================
+   ✅ NÃO mexer na navbar/tabs aqui
+   (dashboard.css é o “dono” de .account-bar / .main-nav)
+   ========================================================= */
+
+/* Só um guard para o caso de algum reset externo remover padding das tabs */
+.main-nav .tabs{
+  padding: 10px 16px;
+}
+
+/* =========================================================
+   ✅ Conteúdo da página
+   ========================================================= */
+
+/* Usa o espaçamento para “passar” por baixo do topo fixo */
+.page-wrap{
+  min-height:100vh;
+  padding: var(--top-offset) 16px 24px;
+}
+
+/* Card principal da página */
+.page-wrap .container,
+.page-wrap .excluir-card{
+  background:var(--ml-card);
+  padding:32px;
+  border-radius:18px;
+  box-shadow:0 10px 30px rgba(0,0,0,.06);
+  max-width:1000px;
+  margin:0 auto 24px auto;
+  border:1px solid var(--border);
+}
+
+/* Título principal */
+.page-wrap h1{
+  color:var(--ml-dark);
+  text-align:center;
+  font-size:2rem;
+  margin:0 0 10px 0;
+}
+.page-wrap h1::after{
+  content:'';
+  display:block;
+  width:120px;
+  height:3px;
+  background:var(--danger);
+  margin:12px auto 0;
+  border-radius:2px;
+}
+
+/* Subtítulo */
+.page-wrap .subtitle{
+  text-align:center;
+  font-size:.92rem;
+  color:var(--ml-muted);
+  margin:0 0 24px 0;
+}
+
+/* ===== Campos ===== */
+.page-wrap .form-group,
+.page-wrap .input-section{
+  margin-bottom:20px;
+}
+
+.page-wrap .form-group label,
+.page-wrap .input-section label{
+  display:block;
+  margin-bottom:8px;
+  font-weight:700;
+  color:var(--ml-dark);
+}
+
+.page-wrap input[type="text"],
+.page-wrap textarea{
+  width:100%;
+  padding:12px 14px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  transition:border .2s, box-shadow .2s;
+  font-size:15px;
+  background:#fff;
+  color:var(--ml-text);
+}
+
+.page-wrap input[type="text"]::placeholder,
+.page-wrap textarea::placeholder{
+  color:#9ca3af;
+  font-size:.92rem;
+}
+
+.page-wrap input[type="text"]:focus,
+.page-wrap textarea:focus{
+  border-color:var(--ml-blue);
+  outline:none;
+  box-shadow:0 0 0 3px rgba(52,131,250,.18);
+}
+
+.page-wrap textarea{
+  min-height:140px;
+  resize:vertical;
+}
+
+/* helper text */
+.page-wrap small{
+  display:block;
+  margin-top:6px;
+  font-size:.8rem;
+  color:var(--ml-muted);
+}
+
+/* Linha: input + botão (um anúncio) */
+.page-wrap .inline-group{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  align-items:center;
+}
+.page-wrap .inline-group input[type="text"]{
+  flex:1;
+  min-width:220px;
+}
+
+/* Linha de botões */
+.page-wrap .buttons-row{
+  margin-top:12px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+}
+
+/* ===== Botões (escopados p/ não afetar navbar) ===== */
+.page-wrap button{
+  background:var(--ml-blue);
+  color:#fff;
+  padding:12px 18px;
+  border:none;
+  border-radius:10px;
+  cursor:pointer;
+  font-size:.95rem;
+  font-weight:800;
+  letter-spacing:.3px;
+  transition:transform .06s, box-shadow .2s, opacity .2s;
+}
+
+.page-wrap button:hover{
+  opacity:.96;
+  transform:translateY(-1px);
+  box-shadow:0 6px 18px rgba(52,131,250,.25);
+}
+.page-wrap button:disabled{
+  opacity:.6;
+  cursor:not-allowed;
+  box-shadow:none;
+  transform:none;
+}
+
+/* Excluir único (vermelho) */
+.page-wrap #btn-excluir,
+.page-wrap .btn-danger{
+  background:var(--danger);
+}
+.page-wrap #btn-excluir:hover,
+.page-wrap .btn-danger:hover{
+  box-shadow:0 6px 18px rgba(211,47,47,.30);
+}
+
+/* Excluir em lote (amarelo) */
+.page-wrap #btn-excluir-lote,
+.page-wrap .btn-warning{
+  background:var(--warn);
+  color:#212529;
+}
+.page-wrap #btn-excluir-lote:hover,
+.page-wrap .btn-warning:hover{
+  box-shadow:0 6px 18px rgba(255,202,40,.40);
+}
+
+/* Limpar (neutro) */
+.page-wrap #btn-limpar,
+.page-wrap .btn-secondary{
+  background:#6b7280;
+}
+.page-wrap #btn-limpar:hover,
+.page-wrap .btn-secondary:hover{
+  box-shadow:0 6px 18px rgba(55,65,81,.30);
+}
+
+/* ===== Resultado ===== */
+.page-wrap .result-panel,
+.page-wrap .painel-resultado{
+  margin-top:24px;
+  background:#f9fafb;
+  border-left:4px solid var(--ml-blue);
+  padding:16px 16px 12px;
+  font-size:.9rem;
+  border-radius:12px;
+}
+
+.page-wrap .result-panel.hidden,
+.page-wrap .painel-resultado.hidden{
+  display:none;
+}
+
+.page-wrap .result-panel h3,
+.page-wrap .painel-resultado h3{
+  margin:0 0 8px 0;
+  font-size:1rem;
+  font-weight:800;
+  color:var(--ml-dark);
+}
+
+/* JSON */
+.page-wrap #result-json{
+  margin:0;
+  max-height:260px;
+  overflow:auto;
+  background:#f3f4f6;
+  border-radius:10px;
+  padding:12px;
+  font-family:Consolas, 'Courier New', monospace;
+  font-size:.85rem;
+  color:#111827;
+  white-space:pre-wrap;
+}
+
+/* helpers */
+.page-wrap .result{
+  margin-top:12px;
+  padding:14px;
+  border-radius:12px;
+  border-left:4px solid;
+}
+.page-wrap .result.success{
+  background:#e8f5e9;
+  border-color:var(--success);
+  color:#1b5e20;
+}
+.page-wrap .result.error{
+  background:#fdecea;
+  border-color:var(--danger);
+  color:#7f1d1d;
+}
+.page-wrap .result.info{
+  background:#e8f4fd;
+  border-color:var(--ml-blue);
+  color:#0b4ea2;
+}
+
+/* ===== Responsivo ===== */
+@media (max-width:768px){
+  .page-wrap{
+    padding: var(--top-offset) 10px 20px;
+  }
+
+  .page-wrap .container,
+  .page-wrap .excluir-card{
+    padding:20px;
+  }
+
+  .page-wrap button{
+    width:100%;
+  }
+
+  .page-wrap .inline-group{
+    flex-direction:column;
+    align-items:stretch;
+  }
+
+  .page-wrap .buttons-row{
+    flex-direction:column;
+  }
+}

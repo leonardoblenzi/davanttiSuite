@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Selecionar Conta - API Mercado Livre</title>
+
+  <link rel="stylesheet" href="/ml/css/dashboard.css" />
+  <link rel="stylesheet" href="/ml/css/select-conta.css" />
+</head>
+
+<body>
+  <!-- Topbar (mantém seu padrão visual) -->
+  <header class="account-bar">
+    <div class="account-bar__left">
+      <span class="logo">🟡</span>
+      <span class="app-name">API Mercado Livre</span>
+    </div>
+
+    <div class="account-bar__right">
+      <div class="account-bar__current">
+        <span class="lbl">Conta ML:</span>
+        <span class="val" id="account-current">Não selecionada</span>
+      </div>
+
+      <!-- Para usuário normal: aparece "Vincular Conta" -->
+      <button class="account-bar__status" id="btn-vincular" type="button" title="Vincular nova conta Mercado Livre">
+        Vincular Conta
+      </button>
+
+      <!-- Para MASTER: aparece "Painel Admin" (no lugar do Vincular) -->
+      <button class="account-bar__status" id="btn-admin" type="button" title="Abrir Painel Administrativo" style="display:none;">
+        Painel Admin
+      </button>
+
+      <button class="account-bar__switch" id="btn-sair" type="button" title="Sair do sistema">
+        Sair
+      </button>
+    </div>
+  </header>
+
+  <main class="page-wrap">
+    <section class="tab-page active">
+      <div class="container">
+        <div class="select-wrap">
+          <div class="select-head">
+            <span>🔎</span><span>API Mercado Livre</span>
+          </div>
+
+          <h1 class="select-title" id="select-title">Selecione a conta</h1>
+
+          <!-- ✅ Vamos trocar o texto via JS quando for master -->
+          <p class="select-sub" id="select-sub">
+            Escolha qual conta do Mercado Livre deseja usar nesta sessão.
+            Você pode vincular novas contas e trocar depois quando quiser.
+          </p>
+
+          <div id="alert" style="display:none"></div>
+
+          <!-- Lista (OAuth / Banco) -->
+          <div class="grid" id="list"></div>
+
+          <div class="actions">
+            <button class="btn btn-ghost" id="btn-dashboard" type="button">Voltar ao Dashboard</button>
+            <button class="btn btn-warning" id="btn-limpar" type="button">Limpar seleção</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- JS dedicado -->
+  <script src="/ml/js/select-conta.js?v=2"></script>
+</body>
+</html>

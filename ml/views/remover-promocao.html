@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Remover Promoções - ML</title>
+  <link rel="stylesheet" href="/ml/css/dashboard.css">
+  <link rel="stylesheet" href="/ml/css/remover-promocao.css">
+  <!-- ✅ CSS do painel de processos -->
+  <link rel="stylesheet" href="/ml/css/promo-jobs.css">
+</head>
+<body>
+
+<header class="account-bar">
+  <div class="account-bar__left">
+    <a class="brand" href="/ml/dashboard" aria-label="DAVANTTI">
+      <img
+        src="/ml/img/davantti.png"
+        alt="DAVANTTI"
+        class="brand__logo"
+        width="170"
+        height="42"
+        decoding="async"
+        loading="eager"
+      />
+    </a>
+  </div>
+  <div class="account-bar__right">
+    <div class="account-bar__current">
+      <span class="lbl">Conta:</span>
+      <span id="account-current" class="val">Carregando...</span>
+    </div>
+    <button id="btn-status" class="account-bar__status" title="Ver status do token">Status</button>
+    <button id="account-switch" class="account-bar__switch" title="Trocar de conta">Trocar Conta</button>
+  </div>
+</header>
+
+<!-- NAV TABS -->
+  <nav class="main-nav">
+    <div class="tabs">
+      <button class="nav-tab" onclick="location.href='/dashboard#dashboard'">Dashboard</button>
+      <button class="nav-tab" onclick="location.href='/dashboard#anuncios'">Anúncios</button>
+      <button class="nav-tab  active" onclick="location.href='/dashboard#produtos'">Alterações Massivas</button>
+      <button class="nav-tab" onclick="location.href='/dashboard#ia'">IA & Analytics</button>
+      <button class="nav-tab" onclick="location.href='/dashboard#publicidade'">Publicidade</button>
+      <button class="nav-tab" onclick="location.href='/dashboard#benchmarking'">Benchmarking</button>
+      <button class="nav-tab" onclick="location.href='/dashboard#alertas'">Alertas</button>
+      <button class="nav-tab" onclick="location.href='/dashboard#ml'">ML</button>
+      <button class="nav-tab" onclick="location.href='/full'">FULL</button>
+      <button class="nav-tab" onclick="location.href='/dashboard#admin'">Admin</button>
+    </div>
+  </nav>
+
+
+<div id="modal-status" class="modal">
+  <div class="modal-content">
+    <div class="modal-header alt">
+      <h3>🟢 Status da Integração</h3>
+      <span class="close" onclick="fecharModalStatus()">&times;</span>
+    </div>
+    <div class="modal-body">
+      <div class="status-grid">
+        <div class="stat-mini"><h4 id="status-usuario">—</h4><p>Usuário</p></div>
+        <div class="stat-mini"><h4 id="status-token">—</h4><p>Token (preview)</p></div>
+        <div class="stat-mini"><h4 id="status-msg">—</h4><p>Mensagem</p></div>
+      </div>
+      <div class="modal-controls">
+        <button class="btn-small btn-primary" onclick="verificarToken(true)">🔍 Verificar</button>
+        <button class="btn-small btn-success" onclick="renovarToken(true)">🔄 Renovar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<main class="page-wrap">
+  <section class="tab-page active">
+    <div class="container">
+      <h1>🎯 Remover Promoções</h1>
+
+      <div class="form-group">
+        <label for="mlbId">MLB ID do Anúncio:</label>
+        <input id="mlbId" placeholder="Ex: MLB1234567890" type="text"/>
+        <small>Digite o código MLB do anúncio (encontrado na URL)</small>
+      </div>
+
+      <div class="form-group">
+        <label for="mlbIds">Múltiplos MLB IDs (um por linha):</label>
+        <textarea id="mlbIds" placeholder="MLB1234567890
+MLB0987654321
+MLB1122334455" rows="6"></textarea>
+        <small>Para remover promoções de vários anúncios de uma vez</small>
+      </div>
+
+      <button onclick="removerUnico()">🎯 Remover Único</button>
+      <button id="btn-remover-lote" class="btn-warning" onclick="removerLote()">🚀 Remover em Lote</button>
+      <button class="btn-secondary" onclick="verificarStatus()">📊 Status</button>
+      <button class="btn-secondary" onclick="limpar()">🧹 Limpar</button>
+
+      <div id="resultado"></div>
+    </div>
+
+    <script>
+      let currentProcessId = null;
+      let monitorInterval = null;
+
+      console.log('Script carregado com sucesso!');
+
+      // ===== Helper: parse de MLBs (quebra por linha, valida e remove duplicados) =====
+      function parseMlbs(text) {
+        return Array.from(
+          new Set(
+            String(text || '')
+              .split(/\r?\n+/)                   // quebra por nova linha (Win/Mac/Linux)
+              .map(s => s.trim().toUpperCase())
+              .filter(s => /^MLB\d{6,}$/.test(s)) // mantém só padrões MLB
+          )
+        );
+      }
+
+      // ===== Remoção individual (mantém seu fluxo atual) =====
+      async function removerUnico() {
+        const mlbId = document.getElementById('mlbId').value.trim().toUpperCase();
+        if (!/^MLB\d{6,}$/.test(mlbId)) { alert('Digite um MLB válido (ex: MLB1234567890)'); return; }
+
+        const resultado = document.getElementById('resultado');
+        resultado.innerHTML = '<div class="result info">🔄 Removendo promoção...</div>';
+
+        try {
+          const response = await fetch('/anuncio/remover-promocao', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mlb_id: mlbId })
+          });
+
+          if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          const data = await response.json();
+
+          if (data.success) {
+            const metodos = data.metodos_tentados ? data.metodos_tentados.join(', ') : '';
+            resultado.innerHTML = `
+              <div class="result success">
+                ✅ SUCESSO!<br><br>
+                Anúncio: ${data.titulo || 'N/A'}<br>
+                MLB: ${data.mlb_id}<br>
+                Status: ${data.message}<br>
+                Preço antes: R$ ${data.preco_antes || 'N/A'}<br>
+                Preço depois: R$ ${data.preco_depois || 'N/A'}<br>
+                Ainda tem promoção: ${data.ainda_tem_promocao ? 'SIM' : 'NÃO'}<br>
+                ${metodos ? ('Métodos: ' + metodos) : ''}
+              </div>`;
+          } else {
+            resultado.innerHTML = `
+              <div class="result error">
+                ❌ ERRO<br><br>
+                ${(data.message || data.error) || 'Falha ao remover'}<br>
+                ${data.mlb_id ? ('MLB: ' + data.mlb_id) : ''}
+              </div>`;
+          }
+        } catch (error) {
+          console.error('Erro na requisição:', error);
+          resultado.innerHTML = `<div class="result error">❌ Erro: ${error.message}</div>`;
+        }
+      }
+
+      // ===== Remoção em Lote (fila + painel; com trava anti-duplo clique) =====
+      let __remLoteLock = false;
+      async function removerLote() {
+        if (__remLoteLock) return;
+        __remLoteLock = true;
+        setTimeout(() => { __remLoteLock = false; }, 1500);
+
+        const btn = document.getElementById('btn-remover-lote');
+        if (btn) { btn.disabled = true; btn.style.opacity = '0.7'; }
+
+        const mlbIds = parseMlbs(document.getElementById('mlbIds').value);
+        if (!mlbIds.length) {
+          alert('Informe ao menos um MLB válido (um por linha).');
+          if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+          return;
+        }
+
+        const resultado = document.getElementById('resultado');
+
+        // Preferência: painel/fila (RemocaoBulk + JobsPanel)
+        if (window.RemocaoBulk && typeof window.RemocaoBulk.enqueue === 'function') {
+          try {
+            await window.RemocaoBulk.enqueue({
+              items: mlbIds,
+              delayMs: 250,
+              title: `Remoção – ${mlbIds.length} itens`
+            });
+            resultado.innerHTML = '<div class="result info">🚀 Processo enviado para o painel de processos (canto inferior direito).<br/>Você pode continuar usando a página.</div>';
+          } catch (e) {
+            // Fallback legado
+            try {
+              const response = await fetch('/anuncios/remover-promocoes-lote', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mlb_ids: mlbIds, delay_entre_remocoes: 3000 })
+              });
+              const data = await response.json();
+              if (data.success) {
+                currentProcessId = data.process_id;
+                monitorarProgresso(data.process_id);
+              } else {
+                resultado.innerHTML = `<div class="result error">❌ Erro: ${(data.error || 'Falha ao iniciar')}</div>`;
+              }
+            } catch (err) {
+              resultado.innerHTML = `<div class="result error">❌ Erro: ${err.message}</div>`;
+            }
+          } finally {
+            if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+          }
+          return;
+        }
+
+        // Painel indisponível → 100% legado
+        try {
+          const response = await fetch('/anuncios/remover-promocoes-lote', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mlb_ids: mlbIds, delay_entre_remocoes: 3000 })
+          });
+          const data = await response.json();
+          if (data.success) {
+            currentProcessId = data.process_id;
+            monitorarProgresso(data.process_id);
+          } else {
+            resultado.innerHTML = `<div class="result error">❌ Erro: ${(data.error || 'Falha ao iniciar')}</div>`;
+          }
+        } catch (error) {
+          resultado.innerHTML = `<div class="result error">❌ Erro: ${error.message}</div>`;
+        } finally {
+          if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+        }
+      }
+
+      // ===== Monitor legado (para o botão "Status") =====
+      async function verificarStatus() {
+        if (!currentProcessId) { alert('Nenhum processamento ativo (legado).'); return; }
+        try {
+          const response = await fetch('/anuncios/status-remocao/' + currentProcessId);
+          const data = await response.json();
+          const resultado = document.getElementById('resultado');
+          const concluido = data.status === 'concluido'
+            ? ('<br>Concluído: ' + new Date(data.concluido_em).toLocaleString('pt-BR')) : '';
+          resultado.innerHTML = `
+            <div class="result info">
+              📊 STATUS (LEGADO)<br><br>
+              Process ID: ${data.id}<br>
+              Status: ${data.status}<br>
+              Progresso: ${data.progresso}%<br>
+              Processados: ${data.processados}/${data.total_anuncios}<br>
+              Sucessos: ${data.sucessos}<br>
+              Erros: ${data.erros}<br>
+              Iniciado: ${new Date(data.iniciado_em).toLocaleString('pt-BR')}${concluido}
+            </div>`;
+        } catch (error) {
+          console.error('Erro ao verificar status:', error);
+          document.getElementById('resultado').innerHTML = `<div class="result error">❌ Erro: ${error.message}</div>`;
+        }
+      }
+
+      function monitorarProgresso(processId) {
+        if (monitorInterval) clearInterval(monitorInterval);
+        monitorInterval = setInterval(async () => {
+          try {
+            const response = await fetch('/anuncios/status-remocao/' + processId);
+            const data = await response.json();
+            if (data.status === 'concluido' || data.status === 'erro') {
+              clearInterval(monitorInterval);
+              verificarStatus();
+            }
+          } catch (error) { console.error('Erro no monitoramento:', error); }
+        }, 3000);
+      }
+
+      function limpar() {
+        document.getElementById('resultado').innerHTML = '';
+        if (monitorInterval) { clearInterval(monitorInterval); monitorInterval = null; }
+        currentProcessId = null;
+        document.getElementById('mlbId').value = '';
+        document.getElementById('mlbIds').value = '';
+      }
+
+      window.addEventListener('load', function() {
+        console.log('Página carregada completamente');
+        console.log('Funções disponíveis:', {
+          removerUnico: typeof removerUnico,
+          removerLote: typeof removerLote,
+          verificarStatus: typeof verificarStatus,
+          limpar: typeof limpar
+        });
+      });
+
+      window.addEventListener('beforeunload', function() {
+        if (monitorInterval) clearInterval(monitorInterval);
+      });
+    </script>
+  </section>
+</main>
+
+<!-- ✅ Painel de processos fixo no canto -->
+<div id="bulkJobsPanel" class="jobs-panel"></div>
+
+<script>
+  // Ativar aba "produtos"
+  (function(){
+    var tabs = document.querySelectorAll('.nav-tab');
+    tabs.forEach(function(t){
+      if (t.getAttribute('data-tab') === 'produtos') t.classList.add('active');
+    });
+  })();
+
+  // Conta atual + Trocar conta
+  const ACCOUNT_LABELS = { drossi: 'DRossi Interiores', diplany: 'Diplany', rossidecor: 'Rossi Decor' };
+  async function carregarContaAtual() {
+    const currentEl = document.getElementById('account-current');
+    try {
+      const r = await fetch('/api/account/current', { cache: 'no-store' });
+      const data = await r.json();
+      let shown = 'Não selecionada';
+      if (data && (data.ok || data.success)) {
+        shown = data.label || ACCOUNT_LABELS[data.accountKey] || data.accountKey || 'Desconhecida';
+      } else if (data) {
+        shown = data.label || data.accountKey || 'Desconhecida';
+      }
+      currentEl.textContent = shown;
+    } catch(e) { currentEl.textContent = 'Indisponível'; }
+  }
+  async function trocarConta() {
+    try { await fetch('/api/account/clear', { method: 'POST' }); }
+    finally { window.location.href = '/select-conta'; }
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    carregarContaAtual();
+    var switchBtn = document.getElementById('account-switch');
+    if (switchBtn) switchBtn.addEventListener('click', trocarConta);
+  });
+
+  // Status (token)
+  function abrirModalStatus(){ document.getElementById('modal-status').style.display = 'block'; }
+  function fecharModalStatus(){ document.getElementById('modal-status').style.display = 'none'; }
+  document.getElementById('btn-status').addEventListener('click', async () => {
+    abrirModalStatus();
+    await verificarToken(true);
+  });
+
+  async function verificarToken(updateModal=false) {
+    try {
+      const response = await fetch('/verificar-token');
+      const data = await response.json();
+      if (data.success) {
+        if (updateModal) {
+          document.getElementById('status-usuario').textContent = data.nickname || '—';
+          document.getElementById('status-token').textContent = data.token_preview || '—';
+          document.getElementById('status-msg').textContent = data.message || 'OK';
+        } else {
+          alert('✅ ' + data.message + '\nUser: ' + data.nickname + '\nToken: ' + data.token_preview);
+        }
+      } else {
+        if (updateModal) document.getElementById('status-msg').textContent = data.error || 'Falha ao verificar';
+        else alert('❌ ' + (data.error || 'Falha ao verificar'));
+      }
+    } catch (error) {
+      if (updateModal) document.getElementById('status-msg').textContent = 'Erro: ' + error.message;
+      else alert('❌ Erro: ' + error.message);
+    }
+  }
+
+  async function renovarToken(updateModal=false) {
+    try {
+      const response = await fetch('/renovar-token-automatico', { method: 'POST' });
+      const data = await response.json();
+      if (data.success) {
+        if (updateModal) {
+          document.getElementById('status-usuario').textContent = data.nickname || '—';
+          document.getElementById('status-token').textContent = (data.access_token || '').substring(0, 20) + '...';
+          document.getElementById('status-msg').textContent = data.message || 'Token renovado';
+        } else {
+          alert('✅ ' + data.message + '\nUser: ' + data.nickname + '\nNovo token: ' + data.access_token.substring(0, 20) + '...');
+        }
+      } else {
+        if (updateModal) document.getElementById('status-msg').textContent = data.error || 'Falha ao renovar';
+        else alert('❌ ' + (data.error || 'Falha ao renovar'));
+      }
+    } catch (error) {
+      if (updateModal) document.getElementById('status-msg').textContent = 'Erro: ' + error.message;
+      else alert('❌ Erro: ' + error.message);
+    }
+  }
+
+  // Fechar modal clicando fora
+  window.addEventListener('click', function(event){
+    const m2 = document.getElementById('modal-status');
+    if (event.target === m2) fecharModalStatus();
+  });
+</script>
+
+<!-- ✅ Scripts do painel e da fila -->
+<script src="/ml/js/jobs-panel.js" defer></script>
+<script src="/ml/js/remocao-bulk.js" defer></script>
+</body>
+</html>

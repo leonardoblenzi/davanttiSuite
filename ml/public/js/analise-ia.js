@@ -1,0 +1,877 @@
+// public/js/analise-ia.js
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const qsa = (s, el = document) => Array.from(el.querySelectorAll(s));
+
+  const el = {
+    mlbInput: $("mlbInput"),
+    days: $("daysSelect"),
+    zip: $("zipInput"),
+
+    photoWrap: $("aaPhotoWrap"),
+    photoPh: $("aaPhotoPlaceholder"),
+
+    btnLoad: $("btnLoad"),
+    btnDiag: $("btnDiag"),
+    btnInsightsIA: $("btnInsightsIA"), // ✅ NOVO
+    btnCopy: $("btnCopyJson"),
+    btnCopy2: $("btnCopyJson2"),
+    btnClear: $("btnClear"),
+
+    chipMlb: $("chipMlb"),
+    chipStatus: $("chipStatus"),
+    chipConta: $("chipConta"),
+
+    err: $("aaError"),
+    ok: $("aaOk"),
+
+    sumTitle: $("sumTitle"),
+    sumType: $("sumType"),
+    sumPrice: $("sumPrice"),
+    sumStock: $("sumStock"),
+    sumSold: $("sumSold"),
+    sumCreated: $("sumCreated"),
+
+    // antigos (compat)
+    sumPremium: $("sumPremium"),
+    sumCatalog: $("sumCatalog"),
+    sumVisits: $("sumVisits"),
+    sumShipping: $("sumShipping"),
+    sumSeller: $("sumSeller"),
+    sumRep: $("sumRep"),
+
+    // pills
+    pillPremium: $("pillPremium"),
+    pillCatalog: $("pillCatalog"),
+    pillOfficial: $("pillOfficial"),
+    pillFreeShip: $("pillFreeShip"),
+
+    // métricas
+    kpiVisits: $("kpiVisits"),
+    kpiConversion: $("kpiConversion"),
+    kpiSalesPerDay: $("kpiSalesPerDay"),
+    kpiSalesPerMonth: $("kpiSalesPerMonth"),
+    kpiSaleEvery: $("kpiSaleEvery"),
+    kpiFreteVal: $("kpiFreteVal"),
+
+    // ✅ novos cards
+    kpiTax: $("kpiTax"),
+    kpiReceives: $("kpiReceives"),
+    kpiRecommendation: $("kpiRecommendation"),
+    kpiMlConsumption: $("kpiMlConsumption"),
+    kpiRevenue: $("kpiRevenue"),
+    btnRevenueInfo: $("btnRevenueInfo"),
+    kpiLastSale: $("kpiLastSale"),
+
+    rankBox: $("rankBox"),
+    negativesBox: $("negativesBox"),
+
+    lastUpdate: $("lastUpdateInfo"),
+    thumb: $("itemThumb"),
+
+    infoList: $("infoList"),
+
+    jsonPre: $("jsonPre"),
+    diagBox: $("diagBox"),
+
+    // ✅ IA
+    aiDiagBox: $("aiDiagBox"),
+  };
+
+  const API_BASE = "/api/analise-anuncios";
+  let lastPayload = null;
+
+  // guarda o último mlb/days/zip carregado no overview
+  let lastContext = { mlb: "", days: 30, zip: "" };
+
+  function show(elm) {
+    if (elm) elm.classList.remove("d-none");
+  }
+  function hide(elm) {
+    if (elm) elm.classList.add("d-none");
+  }
+  function setText(elm, v) {
+    if (!elm) return;
+    elm.textContent = v == null || v === "" ? "—" : String(v);
+  }
+
+  function escapeHtml(s) {
+    return String(s ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function parseFirstMlb(text) {
+    const s = String(text || "").toUpperCase();
+    const m = s.match(/MLB\d{6,}/);
+    return m ? m[0] : "";
+  }
+
+  function fmtMoneyBRL(v) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return "—";
+    return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  }
+
+  function fmtInt(v) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return "—";
+    return n.toLocaleString("pt-BR");
+  }
+
+  function fmtPct(v) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return "—";
+    const pct = n > 1 ? n : n * 100;
+    return `${pct.toLocaleString("pt-BR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}%`;
+  }
+
+  function fmtDateTime(iso) {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return String(iso);
+    return d.toLocaleString("pt-BR");
+  }
+
+  function setAlert(kind, msg) {
+    if (kind === "error") {
+      setText(el.err, msg);
+      show(el.err);
+      hide(el.ok);
+    } else if (kind === "ok") {
+      setText(el.ok, msg);
+      show(el.ok);
+      hide(el.err);
+    } else {
+      hide(el.err);
+      hide(el.ok);
+    }
+  }
+
+  function setChips({ mlb, status }) {
+    setText(el.chipMlb, `MLB: ${mlb || "—"}`);
+    setText(el.chipStatus, `Status: ${status || "—"}`);
+  }
+
+  function setPill(elm, { on, labelOn, labelOff, unknownLabel = "—" } = {}) {
+    if (!elm) return;
+    if (on === true) {
+      elm.textContent = labelOn || "Sim";
+      elm.classList.add("is-on");
+      elm.classList.remove("is-off");
+      return;
+    }
+    if (on === false) {
+      elm.textContent = labelOff || "Não";
+      elm.classList.add("is-off");
+      elm.classList.remove("is-on");
+      return;
+    }
+    elm.textContent = unknownLabel;
+    elm.classList.remove("is-on");
+    elm.classList.remove("is-off");
+  }
+
+  function computeDerived(data, days) {
+    const s = data?.summary || {};
+    const visits = Number(data?.visits?.total ?? data?.visits ?? NaN);
+    const sold = Number(s.sold_quantity ?? NaN);
+
+    const out = {
+      visits: Number.isFinite(visits) ? visits : null,
+      sold: Number.isFinite(sold) ? sold : null,
+      conversion: null,
+      saleEvery: null,
+      salesPerDay: null,
+      salesPerMonth: null,
+    };
+
+    const convBackend = data?.metrics?.conversion ?? data?.conversion ?? null;
+    if (convBackend != null) {
+      out.conversion = Number(convBackend);
+    } else if (out.visits && Number.isFinite(out.sold)) {
+      out.conversion = out.visits > 0 ? out.sold / out.visits : null;
+    }
+
+    if (out.visits && Number.isFinite(out.sold) && out.sold > 0) {
+      out.saleEvery = out.visits / out.sold;
+    }
+
+    const d = Number(days);
+    if (Number.isFinite(d) && d > 0 && Number.isFinite(out.sold)) {
+      out.salesPerDay = out.sold / d;
+      out.salesPerMonth = out.salesPerDay * 30;
+    }
+
+    const m = data?.metrics || {};
+    if (m.sale_every_visits != null)
+      out.saleEvery = Number(m.sale_every_visits);
+    if (m.sales_per_day != null) out.salesPerDay = Number(m.sales_per_day);
+    if (m.sales_per_month != null)
+      out.salesPerMonth = Number(m.sales_per_month);
+
+    return out;
+  }
+
+  function renderSummary(data) {
+    const s = data?.summary || {};
+    const m = data?.metrics || {};
+    const unit = m?.unit || {};
+
+    setText(el.sumTitle, s.title);
+    setText(el.sumType, s.listing_type_id || s.listing_type || "—");
+    setText(el.sumPrice, fmtMoneyBRL(s.price));
+    setText(el.sumStock, s.available_quantity ?? "—");
+    setText(el.sumSold, s.sold_quantity ?? s.sold ?? "—");
+    setText(el.sumCreated, s.date_created ? fmtDateTime(s.date_created) : "—");
+
+    setPill(el.pillPremium, {
+      on: s.is_premium,
+      labelOn: "Premium",
+      labelOff: "Clássico",
+      unknownLabel: "Tipo —",
+    });
+
+    setPill(el.pillCatalog, {
+      on: s.catalog_listing,
+      labelOn: "Item catálogo",
+      labelOff: "Sem catálogo",
+      unknownLabel: "Catálogo —",
+    });
+
+    const official =
+      data?.seller?.official_store != null
+        ? !!data.seller.official_store
+        : data?.summary?.official_store_id != null
+        ? true
+        : null;
+
+    setPill(el.pillOfficial, {
+      on: official,
+      labelOn: "Loja oficial",
+      labelOff: "Loja comum",
+      unknownLabel: "Loja —",
+    });
+
+    const freeShip =
+      data?.shipping?.free_shipping != null
+        ? !!data.shipping.free_shipping
+        : null;
+
+    setPill(el.pillFreeShip, {
+      on: freeShip,
+      labelOn: "Frete grátis",
+      labelOff: "Frete pago",
+      unknownLabel: "Frete —",
+    });
+
+    if (el.kpiFreteVal) {
+      const cost = data?.shipping?.cost;
+      setText(el.kpiFreteVal, cost != null ? fmtMoneyBRL(cost) : "—");
+    }
+
+    const days = Number(el.days?.value || 30);
+    const derived = computeDerived(data, days);
+
+    if (el.kpiVisits)
+      setText(
+        el.kpiVisits,
+        derived.visits != null ? fmtInt(derived.visits) : "—"
+      );
+    if (el.kpiConversion)
+      setText(
+        el.kpiConversion,
+        derived.conversion != null ? fmtPct(derived.conversion) : "—"
+      );
+
+    if (el.kpiSalesPerDay) {
+      setText(
+        el.kpiSalesPerDay,
+        derived.salesPerDay != null && Number.isFinite(derived.salesPerDay)
+          ? derived.salesPerDay.toLocaleString("pt-BR", {
+              maximumFractionDigits: 2,
+            })
+          : "—"
+      );
+    }
+
+    if (el.kpiSalesPerMonth) {
+      setText(
+        el.kpiSalesPerMonth,
+        derived.salesPerMonth != null && Number.isFinite(derived.salesPerMonth)
+          ? derived.salesPerMonth.toLocaleString("pt-BR", {
+              maximumFractionDigits: 0,
+            })
+          : "—"
+      );
+    }
+
+    if (el.kpiSaleEvery) {
+      setText(
+        el.kpiSaleEvery,
+        derived.saleEvery != null && Number.isFinite(derived.saleEvery)
+          ? `1 a cada ${derived.saleEvery.toLocaleString("pt-BR", {
+              maximumFractionDigits: 0,
+            })} visitas`
+          : "—"
+      );
+    }
+
+    if (el.kpiTax)
+      setText(el.kpiTax, unit.tax != null ? fmtMoneyBRL(unit.tax) : "—");
+    if (el.kpiReceives)
+      setText(
+        el.kpiReceives,
+        unit.receives != null ? fmtMoneyBRL(unit.receives) : "—"
+      );
+
+    if (el.kpiRecommendation)
+      setText(el.kpiRecommendation, m.recommendation || "—");
+    if (el.kpiMlConsumption)
+      setText(
+        el.kpiMlConsumption,
+        m.ml_consumption != null ? fmtMoneyBRL(m.ml_consumption) : "—"
+      );
+    if (el.kpiRevenue)
+      setText(
+        el.kpiRevenue,
+        m.revenue_gross != null ? fmtMoneyBRL(m.revenue_gross) : "—"
+      );
+
+    if (el.kpiLastSale)
+      setText(
+        el.kpiLastSale,
+        m.last_sale_at ? fmtDateTime(m.last_sale_at) : "—"
+      );
+
+    if (el.btnRevenueInfo) {
+      el.btnRevenueInfo.onclick = () => {
+        const c = m.revenue_orders_count;
+        const txt =
+          m.revenue_gross == null
+            ? "Faturamento não disponível (talvez sem scope read_orders)."
+            : `Janela ${days} dias • pedidos pagos: ${
+                c ?? "—"
+              } • faturamento bruto: ${fmtMoneyBRL(m.revenue_gross)}`;
+        setAlert("ok", txt);
+        setTimeout(() => setAlert(null), 2400);
+      };
+    }
+
+    const thumb =
+      s.pictures?.[0] ||
+      s.thumbnail ||
+      s.picture ||
+      data?.pictures?.[0]?.secure_url ||
+      data?.pictures?.[0]?.url ||
+      data?.pictures?.[0] ||
+      "";
+
+    if (el.thumb) {
+      if (thumb) {
+        el.thumb.src = thumb;
+        el.thumb.style.display = "block";
+        if (el.photoPh) el.photoPh.style.display = "none";
+      } else {
+        el.thumb.removeAttribute("src");
+        el.thumb.style.display = "none";
+        if (el.photoPh) el.photoPh.style.display = "flex";
+      }
+    }
+
+    setText(
+      el.lastUpdate,
+      data?.meta?.fetched_at
+        ? `Atualizado em ${fmtDateTime(data.meta.fetched_at)}`
+        : ""
+    );
+
+    if (el.rankBox) setText(el.rankBox, m.rank || "—");
+    if (el.negativesBox) setText(el.negativesBox, m.negatives || "—");
+  }
+
+  function renderInfoList(data) {
+    if (!el.infoList) return;
+
+    const s = data?.summary || {};
+    const seller = data?.seller || {};
+    const rep = data?.seller_reputation || {};
+
+    const extraPairs = [
+      ["MLB", s.id],
+      ["Status", s.status],
+      ["Permalink", s.permalink],
+      ["Categoria", s.category_id],
+      ["Condição", s.condition],
+      ["Moeda", s.currency_id],
+      ["SKU", s.sku],
+      ["Atualizado em", fmtDateTime(s.last_updated)],
+      [
+        "Vendedor",
+        seller.nickname
+          ? `${seller.nickname}${
+              seller.seller_id ? ` • ID ${seller.seller_id}` : ""
+            }`
+          : "—",
+      ],
+      ["Local", seller.location || "—"],
+      ["Loja oficial ID", s.official_store_id ?? "—"],
+      [
+        "Reputação",
+        rep.level_id
+          ? `${rep.level_id}${
+              rep.power_seller_status ? ` • ${rep.power_seller_status}` : ""
+            }`
+          : "—",
+      ],
+      [
+        "Transações",
+        rep.transactions
+          ? `vendas ${rep.transactions.completed ?? "—"} • canceladas ${
+              rep.transactions.canceled ?? "—"
+            }`
+          : "—",
+      ],
+    ];
+
+    const seen = new Set();
+    const pairs = extraPairs.filter(([k, v]) => {
+      const vv = v == null || v === "" ? "—" : String(v);
+      const key = `${k}::${vv}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    el.infoList.innerHTML = pairs
+      .map(([k, v]) => {
+        const vv = v == null || v === "" ? "—" : String(v);
+
+        if (k === "Permalink" && vv !== "—") {
+          const safeUrl = escapeHtml(vv);
+          return `
+            <div class="aa-row">
+              <div class="k">${escapeHtml(k)}</div>
+              <div class="v"><a href="${safeUrl}" target="_blank" rel="noopener">${safeUrl}</a></div>
+            </div>`;
+        }
+
+        return `
+          <div class="aa-row">
+            <div class="k">${escapeHtml(k)}</div>
+            <div class="v">${escapeHtml(vv)}</div>
+          </div>`;
+      })
+      .join("");
+  }
+
+  function renderJson(data) {
+    lastPayload = data || null;
+    if (el.jsonPre)
+      el.jsonPre.textContent = JSON.stringify(data || {}, null, 2);
+  }
+
+  function renderDiagnostic(data) {
+    const s = data?.summary || {};
+    const issues = [];
+
+    if (!s.id) issues.push("• Não veio ID do item (MLB).");
+    if (s.available_quantity === 0)
+      issues.push("• Estoque zerado (available_quantity=0).");
+    if (s.status && s.status !== "active")
+      issues.push(`• Status diferente de active: ${s.status}`);
+    if (s.catalog_listing === false)
+      issues.push("• Não é item de catálogo (catalog_listing=false).");
+    if (s.is_premium === false) issues.push("• Não está Premium.");
+    if (data?.visits?.total == null)
+      issues.push("• Visitas não carregaram (ver endpoint visits).");
+
+    const hasZip = String(el.zip?.value || "").trim().length > 0;
+    if (hasZip && data?.shipping == null)
+      issues.push("• Frete não carregou (ver shipping_options + cep).");
+
+    const out = issues.length
+      ? `Encontramos alguns pontos:\n\n${issues.join("\n")}`
+      : "Tudo ok ✅ (sem alertas básicos).";
+
+    if (el.diagBox) el.diagBox.textContent = out;
+  }
+
+  // ✅ renderiza IA
+  function renderAiInsights(ai) {
+    if (!el.aiDiagBox) return;
+
+    if (!ai) {
+      el.aiDiagBox.textContent = "IA indisponível no momento.";
+      return;
+    }
+
+    if (ai?.meta?.fallback) {
+      el.aiDiagBox.textContent = ai.headline || "IA indisponível no momento.";
+      return;
+    }
+
+    const headline = ai.headline || "Insights da IA";
+    const scores = ai.scores || {};
+    const insights = Array.isArray(ai.insights) ? ai.insights : [];
+
+    const scoreLine =
+      `SEO ${scores.seo ?? "—"} • Preço ${scores.preco ?? "—"} • ` +
+      `Frete ${scores.frete ?? "—"} • Conversão ${scores.conversao ?? "—"} • ` +
+      `Risco ${scores.risco ?? "—"}`;
+
+    const itemsHtml = insights.length
+      ? `<ol class="ai-insights" style="margin:10px 0 0 18px;">
+          ${insights
+            .map((x) => {
+              const sev = x.severidade || "—";
+              const tipo = x.tipo || "outros";
+              const what = x.o_que_esta_ruim || "";
+              const act = x.acao_recomendada || "";
+              const impact = x.impacto_esperado || "";
+              return `
+                <li style="margin:10px 0;">
+                  <div><b>[${escapeHtml(sev)}]</b> <b>${escapeHtml(
+                tipo
+              )}</b> — ${escapeHtml(what)}</div>
+                  ${act ? `<div><b>Ação:</b> ${escapeHtml(act)}</div>` : ""}
+                  ${
+                    impact
+                      ? `<div><b>Impacto:</b> ${escapeHtml(impact)}</div>`
+                      : ""
+                  }
+                </li>`;
+            })
+            .join("")}
+        </ol>`
+      : `<div style="margin-top:8px;">Sem insights (a IA pode ter retornado missing_data).</div>`;
+
+    el.aiDiagBox.innerHTML = `
+      <div><b>${escapeHtml(headline)}</b></div>
+      <div class="text-muted" style="margin-top:4px;">${escapeHtml(
+        scoreLine
+      )}</div>
+      ${itemsHtml}
+    `;
+  }
+
+  // ✅ fetch GET/POST
+  async function fetchJson(url, opts = {}) {
+    const r = await fetch(url, {
+      method: opts.method || "GET",
+      body: opts.body,
+      cache: "no-store",
+      credentials: "same-origin",
+      redirect: "follow",
+      headers: {
+        Accept: "application/json",
+        ...(opts.headers || {}),
+      },
+    });
+
+    const ct = (r.headers.get("content-type") || "").toLowerCase();
+
+    if (r.status === 401)
+      throw new Error("401: Não autorizado. Faça login novamente.");
+    if (r.status === 403)
+      throw new Error("403: Sem permissão para acessar este recurso.");
+    if (r.status === 404) throw new Error("Rota não encontrada");
+
+    if (!ct.includes("application/json")) {
+      const txt = await r.text().catch(() => "");
+      const looksHtml = txt && txt.toLowerCase().includes("<html");
+      const maybeRedirected =
+        r.url && !r.url.includes("/api/analise-anuncios/");
+
+      if (looksHtml || maybeRedirected) {
+        throw new Error(
+          "Sessão expirou ou você caiu em redirect (login/select-conta). Refaça login e selecione a conta."
+        );
+      }
+      throw new Error(`Resposta não-JSON (${ct || "sem content-type"}).`);
+    }
+
+    const data = await r.json().catch(() => null);
+
+    if (!r.ok) {
+      const msg =
+        data?.error ||
+        data?.message ||
+        `HTTP ${r.status}${r.statusText ? ` (${r.statusText})` : ""}`;
+      throw new Error(msg);
+    }
+
+    return data;
+  }
+
+  // ✅ chama IA (manual)
+  async function loadAiInsights(mlb, days, zip) {
+    if (!el.aiDiagBox) return;
+
+    el.aiDiagBox.textContent = "Gerando insights com IA…";
+
+    const url =
+      `${API_BASE}/insights/${encodeURIComponent(mlb)}` +
+      `?days=${encodeURIComponent(days)}` +
+      `&zip_code=${encodeURIComponent(zip || "")}`;
+
+    // backend: POST
+    const ai = await fetchJson(url, { method: "POST" });
+    renderAiInsights(ai);
+  }
+
+  async function loadOverview() {
+    setAlert(null);
+
+    const raw = el.mlbInput?.value || "";
+    const mlb = parseFirstMlb(raw);
+    if (!mlb) {
+      setAlert("error", "Informe um MLB válido (ex: MLB123...).");
+      return;
+    }
+
+    if (el.mlbInput) el.mlbInput.value = mlb;
+
+    const days = Number(el.days?.value || 30);
+    const zip = String(el.zip?.value || "").trim();
+
+    const url =
+      `${API_BASE}/overview/${encodeURIComponent(mlb)}` +
+      `?days=${encodeURIComponent(days)}` +
+      `&zip_code=${encodeURIComponent(zip)}`;
+
+    if (el.btnLoad) el.btnLoad.disabled = true;
+
+    try {
+      const data = await fetchJson(url);
+
+      setChips({ mlb, status: data?.summary?.status || "—" });
+
+      renderSummary(data);
+      renderInfoList(data);
+      renderJson(data);
+      renderDiagnostic(data);
+
+      // ✅ guarda contexto e habilita botões
+      lastContext = { mlb, days, zip };
+      if (el.btnDiag) el.btnDiag.disabled = false;
+      if (el.btnInsightsIA) el.btnInsightsIA.disabled = false;
+
+      // ✅ texto inicial da IA
+      if (el.aiDiagBox)
+        el.aiDiagBox.textContent =
+          "Clique em “Insights IA” para gerar a análise.";
+
+      setAlert("ok", "Dados carregados com sucesso.");
+    } catch (err) {
+      console.error("loadOverview:", err);
+
+      setChips({ mlb: "", status: "—" });
+      renderSummary({});
+      renderInfoList({});
+      renderJson({});
+      renderDiagnostic({});
+
+      lastContext = { mlb: "", days: 30, zip: "" };
+
+      if (el.aiDiagBox)
+        el.aiDiagBox.textContent =
+          "Carregue um anúncio para ver os insights da IA.";
+      if (el.btnDiag) el.btnDiag.disabled = true;
+      if (el.btnInsightsIA) el.btnInsightsIA.disabled = true;
+
+      setAlert("error", err.message || "Erro ao carregar.");
+    } finally {
+      if (el.btnLoad) el.btnLoad.disabled = false;
+    }
+  }
+
+  function bindTabs() {
+    const tabs = qsa(".inner-tab");
+
+    const panels = {
+      details: $("panel-details"),
+      diagnostic: $("panel-diagnostic"),
+      json: $("panel-json"),
+    };
+
+    if (!tabs.length) return;
+
+    tabs.forEach((t) => {
+      t.addEventListener("click", () => {
+        tabs.forEach((x) => x.classList.remove("active"));
+        t.classList.add("active");
+
+        const key = t.dataset.tab;
+        Object.entries(panels).forEach(([k, p]) => {
+          if (!p) return;
+          if (k === key) p.classList.add("active");
+          else p.classList.remove("active");
+        });
+      });
+    });
+  }
+
+  async function copyJson() {
+    if (!lastPayload) {
+      setAlert("error", "Não há JSON carregado para copiar.");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(lastPayload, null, 2));
+      setAlert("ok", "JSON copiado ✅");
+      setTimeout(() => setAlert(null), 1400);
+    } catch {
+      setAlert(
+        "error",
+        "Não foi possível copiar. Clipboard bloqueado no browser."
+      );
+    }
+  }
+
+  function clearAll() {
+    if (el.mlbInput) el.mlbInput.value = "";
+    if (el.zip) el.zip.value = "";
+    if (el.days) el.days.value = "30";
+
+    setChips({ mlb: "", status: "" });
+    setAlert(null);
+
+    [
+      "sumTitle",
+      "sumType",
+      "sumPrice",
+      "sumStock",
+      "sumSold",
+      "sumCreated",
+    ].forEach((id) => setText($(id), "—"));
+
+    setPill(el.pillPremium, { on: null, unknownLabel: "Tipo —" });
+    setPill(el.pillCatalog, { on: null, unknownLabel: "Catálogo —" });
+    setPill(el.pillOfficial, { on: null, unknownLabel: "Loja —" });
+    setPill(el.pillFreeShip, { on: null, unknownLabel: "Frete —" });
+
+    [
+      el.kpiVisits,
+      el.kpiConversion,
+      el.kpiSalesPerDay,
+      el.kpiSalesPerMonth,
+      el.kpiSaleEvery,
+      el.kpiFreteVal,
+      el.kpiTax,
+      el.kpiReceives,
+      el.kpiRecommendation,
+      el.kpiMlConsumption,
+      el.kpiRevenue,
+      el.kpiLastSale,
+    ].forEach((x) => setText(x, "—"));
+
+    if (el.thumb) {
+      el.thumb.removeAttribute("src");
+      el.thumb.style.display = "none";
+    }
+    if (el.photoPh) el.photoPh.style.display = "flex";
+
+    if (el.infoList) el.infoList.innerHTML = "";
+    if (el.jsonPre) el.jsonPre.textContent = "{}";
+    if (el.diagBox)
+      el.diagBox.textContent = "Carregue um anúncio para ver o diagnóstico.";
+    if (el.aiDiagBox)
+      el.aiDiagBox.textContent =
+        "Clique em “Insights IA” para gerar a análise.";
+    if (el.lastUpdate) el.lastUpdate.textContent = "";
+
+    if (el.rankBox) setText(el.rankBox, "—");
+    if (el.negativesBox) setText(el.negativesBox, "—");
+
+    lastPayload = null;
+    lastContext = { mlb: "", days: 30, zip: "" };
+
+    if (el.btnDiag) el.btnDiag.disabled = true;
+    if (el.btnInsightsIA) el.btnInsightsIA.disabled = true;
+
+    const detailsTab = document.querySelector('.inner-tab[data-tab="details"]');
+    if (detailsTab) detailsTab.click();
+  }
+
+  function bind() {
+    bindTabs();
+
+    el.btnLoad?.addEventListener("click", loadOverview);
+
+    el.btnDiag?.addEventListener("click", () => {
+      const tab = document.querySelector('.inner-tab[data-tab="diagnostic"]');
+      if (tab) tab.click();
+    });
+
+    // ✅ clique pra IA (manual)
+    el.btnInsightsIA?.addEventListener("click", async () => {
+      setAlert(null);
+
+      const mlb = lastContext.mlb || parseFirstMlb(el.mlbInput?.value || "");
+      if (!mlb) {
+        setAlert("error", "Carregue um anúncio primeiro (MLB).");
+        return;
+      }
+
+      const days = Number(el.days?.value || lastContext.days || 30);
+      const zip = String(el.zip?.value || lastContext.zip || "").trim();
+
+      // opcional: já ir pra aba Diagnóstico quando clicar
+      const tab = document.querySelector('.inner-tab[data-tab="diagnostic"]');
+      if (tab) tab.click();
+
+      if (el.btnInsightsIA) el.btnInsightsIA.disabled = true;
+      try {
+        await loadAiInsights(mlb, days, zip);
+        setAlert("ok", "Insights IA gerados ✅");
+      } catch (e) {
+        console.warn("IA insights falhou:", e);
+        if (el.aiDiagBox)
+          el.aiDiagBox.textContent = e.message || "IA indisponível.";
+        setAlert("error", e.message || "IA indisponível.");
+      } finally {
+        if (el.btnInsightsIA) el.btnInsightsIA.disabled = false;
+      }
+    });
+
+    el.btnCopy?.addEventListener("click", copyJson);
+    el.btnCopy2?.addEventListener("click", copyJson);
+
+    el.btnClear?.addEventListener("click", clearAll);
+
+    el.mlbInput?.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        loadOverview();
+      }
+    });
+
+    // Suporte: ?mlb=MLB...
+    try {
+      const usp = new URLSearchParams(location.search);
+      const q = usp.get("mlb") || "";
+      const mlb = parseFirstMlb(q);
+      if (mlb && el.mlbInput) {
+        el.mlbInput.value = mlb;
+        loadOverview();
+      }
+    } catch {}
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    setChips({ mlb: "", status: "" });
+    if (el.btnDiag) el.btnDiag.disabled = true;
+    if (el.btnInsightsIA) el.btnInsightsIA.disabled = true;
+    if (el.aiDiagBox)
+      el.aiDiagBox.textContent =
+        "Clique em “Insights IA” para gerar a análise.";
+    bind();
+  });
+})();

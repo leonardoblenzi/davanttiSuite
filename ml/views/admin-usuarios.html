@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin • Usuários</title>
+
+  <!-- Base do seu app -->
+  <link rel="stylesheet" href="/ml/css/dashboard.css?v=2">
+  <!-- Estilo específico da tela -->
+  <link rel="stylesheet" href="/ml/css/admin-usuarios.css?v=3">
+</head>
+<body>
+  <!-- TOPO FIXO (mantém seu padrão) -->
+  <header class="account-bar">
+    <div class="account-bar__left">
+      <a class="brand" href="/ml/dashboard" aria-label="DAVANTTI">
+        <img
+          src="/ml/img/davantti.png"
+          alt="DAVANTTI"
+          class="brand__logo"
+          width="170"
+          height="42"
+          decoding="async"
+          loading="eager"
+        />
+      </a>
+    </div>
+
+    <div class="account-bar__right">
+      <a class="account-bar__switch" href="/ml/dashboard" style="text-decoration:none; display:inline-flex; align-items:center;">
+        Voltar
+      </a>
+    </div>
+  </header>
+
+  <main class="admin-layout">
+    <!-- Sidebar -->
+    <aside class="admin-sidebar">
+      <div class="admin-sidebar__brand">
+        <div class="admin-sidebar__logo">DAVANTTI</div>
+        <div class="admin-sidebar__sub">Administração</div>
+      </div>
+
+      <nav class="admin-menu" aria-label="Menu Administração">
+        <a class="admin-menu__item active" href="/ml/admin/usuarios">
+          <span class="ico">👤</span>
+          <span>Usuários</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/empresas">
+          <span class="ico">🏢</span>
+          <span>Empresas</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/vinculos">
+          <span class="ico">🔗</span>
+          <span>Vínculos</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/contas-ml">
+          <span class="ico">🟡</span>
+          <span>Contas ML</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/tokens-ml">
+          <span class="ico">🔑</span>
+          <span>Tokens ML</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/oauth-states">
+          <span class="ico">🧩</span>
+          <span>OAuth States</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/migracoes">
+          <span class="ico">📦</span>
+          <span>Migrações</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/backup">
+          <span class="ico">🧰</span><span>Backup</span>
+        </a>
+      </nav>
+
+      <div class="admin-sidebar__footer">
+        <small>Área restrita</small>
+      </div>
+    </aside>
+
+    <!-- Conteúdo -->
+    <section class="admin-content">
+      <div class="admin-content__header">
+        <div>
+          <h1 class="admin-title">Listagem de usuários</h1>
+          <p class="admin-subtitle">Crie, edite, remova e redefina senhas de usuários do sistema.</p>
+        </div>
+
+        <div class="admin-actions">
+          <button id="btn-refresh" class="btn-lite" type="button">↻ Atualizar</button>
+          <button id="btn-create" class="btn-primary" type="button">+ Cadastrar</button>
+        </div>
+      </div>
+
+      <div class="admin-toolbar">
+        <div class="search-box">
+          <input id="search" type="text" placeholder="Pesquisar por nome, email, nível..." />
+          <button id="btn-clear" type="button" class="search-clear" title="Limpar">✕</button>
+        </div>
+
+        <div class="toolbar-right">
+          <span class="pill" id="count-pill">0 usuários</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="table-wrap">
+          <table class="table" id="users-table">
+            <thead>
+              <tr>
+                <th style="width:80px;">ID</th>
+                <th>Nome</th>
+                <th>Email</th>
+                <th style="width:160px;">Nível</th>
+                <th style="width:180px;">Criado</th>
+                <th style="width:180px;">Últ. login</th>
+                <th style="width:120px; text-align:right;">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tbody">
+              <tr>
+                <td colspan="7" class="table-empty">Carregando…</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-footer">
+          <div class="table-footer__left" id="range-info">—</div>
+
+          <div class="table-footer__right">
+            <button class="btn-lite" id="btn-prev" type="button">◀</button>
+            <span class="page-info" id="page-info">1 / 1</span>
+            <button class="btn-lite" id="btn-next" type="button">▶</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="hint">
+        ⚠️ Por segurança, senhas não são exibidas. Para trocar, use <strong>Editar</strong> e defina uma nova senha.
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal Criar/Editar -->
+  <div class="modal" id="modal-user" aria-hidden="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-title">Cadastrar usuário</h3>
+        <button class="close" id="modal-close" type="button">×</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Wizard header (aparece só no CREATE) -->
+        <div class="wizard-head" id="wizard-head" style="display:none;">
+          <div class="wizard-top">
+            <div class="wizard-steptext" id="wizard-steptext">Passo 1/2</div>
+            <div class="wizard-stepsmall" id="wizard-stepsmall">Dados do usuário</div>
+          </div>
+          <div class="wizard-bar">
+            <div class="wizard-bar__fill" id="wizard-bar-fill" style="width:50%;"></div>
+          </div>
+        </div>
+
+        <!-- STEP 1 -->
+        <div id="step-1" class="wizard-step">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Nome</label>
+              <input id="f-nome" type="text" placeholder="Ex: Leonardo" />
+              <small class="field-msg" id="err-nome"></small>
+            </div>
+
+            <div class="form-group">
+              <label>Email *</label>
+              <input id="f-email" type="email" placeholder="email@dominio.com" />
+              <small class="field-msg" id="err-email"></small>
+            </div>
+
+            <div class="form-group">
+              <label>Nível</label>
+              <select id="f-nivel">
+                <option value="usuario">Usuário</option>
+                <option value="administrador">Administrador</option>
+              </select>
+              <small class="field-msg" id="err-nivel"></small>
+            </div>
+
+            <div class="form-group">
+              <label id="lbl-senha">Senha *</label>
+              <input id="f-senha" type="password" placeholder="Digite uma senha" />
+              <small class="help" id="senha-help">No editar, deixe vazio para manter a senha atual.</small>
+              <small class="field-msg" id="err-senha"></small>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 2 -->
+        <div id="step-2" class="wizard-step" style="display:none;">
+          <div class="wizard-summary" id="wizard-summary">
+            <div class="wizard-summary__label">Você está criando:</div>
+            <div class="wizard-summary__value" id="wizard-summary-value">—</div>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Empresa *</label>
+              <select id="f-empresa">
+                <option value="">Carregando empresas…</option>
+              </select>
+              <small class="field-msg" id="err-empresa"></small>
+            </div>
+
+            <div class="form-group">
+              <label>Papel na empresa *</label>
+              <select id="f-papel">
+                <option value="admin">Admin</option>
+                <option value="operador">Operador</option>
+                <option value="owner">Owner</option>
+              </select>
+              <small class="field-msg" id="err-papel"></small>
+            </div>
+          </div>
+
+          <div class="hint" style="margin-top:10px;">
+            ℹ️ Por enquanto, o <strong>papel na empresa</strong> não altera o acesso a outras telas (o gate é global).
+            Mas já fica salvo para você usar depois (ex: permissões por empresa).
+          </div>
+        </div>
+
+        <div class="form-error" id="form-error" style="display:none;"></div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-lite" id="btn-cancel" type="button">Cancelar</button>
+
+        <!-- Wizard buttons (somente CREATE) -->
+        <button class="btn-lite" id="btn-wiz-back" type="button" style="display:none;">Voltar</button>
+        <button class="btn-primary" id="btn-wiz-next" type="button" style="display:none;">Próximo</button>
+
+        <!-- Save (EDIT e CREATE no passo 2) -->
+        <button class="btn-primary" id="btn-save" type="button">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast" style="display:none;"></div>
+
+  <!-- 🔒 UI: esconde itens master-only se não for admin_master -->
+  <script>
+    (async () => {
+      try {
+        const r = await fetch("/api/auth/me", { credentials: "include", cache: "no-store" });
+        const data = await r.json().catch(() => null);
+
+        const nivel =
+          data?.user?.nivel ||
+          data?.user?.user?.nivel ||
+          data?.nivel ||
+          null;
+
+        const isMaster = data?.is_master === true || nivel === "admin_master";
+
+        document.querySelectorAll("[data-master-only='1']").forEach((el) => {
+          el.style.display = isMaster ? "" : "none";
+        });
+      } catch (_) {
+        document.querySelectorAll("[data-master-only='1']").forEach((el) => {
+          el.style.display = "none";
+        });
+      }
+    })();
+  </script>
+
+  <script src="/ml/js/admin-usuarios.js?v=2"></script>
+</body>
+</html>

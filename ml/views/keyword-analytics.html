@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <link rel="stylesheet" href="/ml/css/dashboard.css">
+  <link href="/ml/css/keyword-analytics.css" rel="stylesheet"/>
+  <title>Análise de Palavra-chave - Google Trends</title>
+</head>
+<body>
+
+  <header class="account-bar">
+    <div class="account-bar__left">
+    <a class="brand" href="/ml/dashboard" aria-label="DAVANTTI">
+      <img
+        src="/ml/img/davantti.png"
+        alt="DAVANTTI"
+        class="brand__logo"
+        width="170"
+        height="42"
+        decoding="async"
+        loading="eager"
+      />
+    </a>
+  </div>
+    <div class="account-bar__right">
+      <div class="account-bar__current">
+        <span class="lbl">Conta:</span>
+        <span id="account-current" class="val">Carregando...</span>
+      </div>
+      <button id="btn-status" class="account-bar__status" title="Ver status do token">Status</button>
+      <button id="account-switch" class="account-bar__switch" title="Trocar de conta">Trocar Conta</button>
+    </div>
+  </header>
+
+<!-- NAV TABS -->
+  <nav class="main-nav">
+    <div class="tabs">
+      <button class="nav-tab" onclick="location.href='/dashboard#dashboard'">Dashboard</button>
+      <button class="nav-tab" onclick="location.href='/dashboard#anuncios'">Anúncios</button>
+      <button class="nav-tab  active" onclick="location.href='/dashboard#produtos'">Alterações Massivas</button>
+      <button class="nav-tab" onclick="location.href='/dashboard#ia'">IA & Analytics</button>
+      <button class="nav-tab" onclick="location.href='/dashboard#publicidade'">Publicidade</button>
+      <button class="nav-tab" onclick="location.href='/dashboard#benchmarking'">Benchmarking</button>
+      <button class="nav-tab" onclick="location.href='/dashboard#alertas'">Alertas</button>
+      <button class="nav-tab" onclick="location.href='/dashboard#ml'">ML</button>
+      <button class="nav-tab" onclick="location.href='/full'">FULL</button>
+      <button class="nav-tab" onclick="location.href='/dashboard#admin'">Admin</button>
+    </div>
+  </nav>
+    
+
+  <div id="modal-status" class="modal">
+    <div class="modal-content">
+      <div class="modal-header alt">
+        <h3>🟢 Status da Integração</h3>
+        <span class="close" onclick="fecharModalStatus()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div class="status-grid">
+          <div class="stat-mini"><h4 id="status-usuario">—</h4><p>Usuário</p></div>
+          <div class="stat-mini"><h4 id="status-token">—</h4><p>Token (preview)</p></div>
+          <div class="stat-mini"><h4 id="status-msg">—</h4><p>Mensagem</p></div>
+        </div>
+        <div class="modal-controls">
+          <button class="btn-small btn-primary" onclick="verificarToken(true)">🔍 Verificar</button>
+          <button class="btn-small btn-success" onclick="renovarToken(true)">🔄 Renovar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+    
+<main class="page-wrap">
+  <section class="tab-page active">
+    <div class="container">
+
+<div class="container">
+<div class="header">
+<h1>📈 Análise de Palavra-chave e Tendências (Google Trends)</h1>
+<p>Descubra as palavras-chave mais buscadas e suas tendências no Google.</p>
+</div>
+<div class="controls">
+<div class="input-group">
+<label for="searchKeyword">Palavra-chave Principal:</label>
+<input id="searchKeyword" placeholder="Ex: 'sofá', 'churrasqueira', 'monitor gamer'" type="text"/>
+</div>
+<button class="btn btn-primary" onclick="searchKeywordTrends()">Buscar Tendências</button>
+<button class="btn btn-secondary" onclick="clearKeywordCache(event)">Limpar Cache (Futuro)</button>
+</div>
+<div class="loading" id="loading">
+<div class="loading-spinner"></div>
+<p>Consultando Google Trends... Isso pode levar alguns segundos.</p>
+</div>
+<div class="results" id="results" style="display: none;">
+<div class="result-header" id="resultHeader"></div>
+<div class="keyword-list" id="keywordList">
+</div>
+</div>
+<div class="error-message" id="errorMessage" style="display: none;">
+</div>
+</div>
+<script src="/ml/js/keyword-analytics.js"></script>
+
+    </div>
+  </section>
+</main>
+
+  <script>
+    // Marcar aba ativa
+    (function() {
+      var tabs = document.querySelectorAll('.nav-tab');
+      tabs.forEach(function(t) {
+        if (t.getAttribute('data-tab') === 'ia') t.classList.add('active');
+      });
+    })();
+
+    // Conta atual + Trocar conta
+    const ACCOUNT_LABELS = { drossi: 'DRossi Interiores', diplany: 'Diplany', rossidecor: 'Rossi Decor' };
+    async function carregarContaAtual() {
+      const currentEl = document.getElementById('account-current');
+      try {
+        const r = await fetch('/api/account/current', { cache: 'no-store' });
+        const data = await r.json();
+        let shown = 'Não selecionada';
+        if (data && (data.ok || data.success)) {
+          shown = data.label || ACCOUNT_LABELS[data.accountKey] || data.accountKey || 'Desconhecida';
+        } else if (data) {
+          shown = data.label || data.accountKey || 'Desconhecida';
+        }
+        currentEl.textContent = shown;
+      } catch(e) {
+        currentEl.textContent = 'Indisponível';
+      }
+    }
+    async function trocarConta() {
+      try {
+        await fetch('/api/account/clear', { method: 'POST' });
+        window.location.href = '/select-conta';
+      } catch(e) {
+        window.location.href = '/select-conta';
+      }
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+      carregarContaAtual();
+      var switchBtn = document.getElementById('account-switch');
+      if (switchBtn) switchBtn.addEventListener('click', trocarConta);
+    });
+
+    // Status (token)
+    function abrirModalStatus() {
+      document.getElementById('modal-status').style.display = 'block';
+    }
+    function fecharModalStatus() {
+      document.getElementById('modal-status').style.display = 'none';
+    }
+    document.getElementById('btn-status').addEventListener('click', async () => {
+      abrirModalStatus();
+      await verificarToken(true);
+    });
+    async function verificarToken(updateModal=false) {
+      try {
+        const response = await fetch('/verificar-token');
+        const data = await response.json();
+        if (data.success) {
+          if (updateModal) {
+            document.getElementById('status-usuario').textContent = data.nickname || '—';
+            document.getElementById('status-token').textContent = data.token_preview || '—';
+            document.getElementById('status-msg').textContent = data.message || 'OK';
+          } else {
+            alert('✅ ' + data.message + '\nUser: ' + data.nickname + '\nToken: ' + data.token_preview);
+          }
+        } else {
+          if (updateModal) {
+            document.getElementById('status-msg').textContent = data.error || 'Falha ao verificar';
+          } else {
+            alert('❌ ' + (data.error || 'Falha ao verificar'));
+          }
+        }
+      } catch (error) {
+        if (updateModal) document.getElementById('status-msg').textContent = 'Erro: ' + error.message;
+        else alert('❌ Erro: ' + error.message);
+      }
+    }
+    async function renovarToken(updateModal=false) {
+      try {
+        const response = await fetch('/renovar-token-automatico', { method: 'POST' });
+        const data = await response.json();
+        if (data.success) {
+          if (updateModal) {
+            document.getElementById('status-usuario').textContent = data.nickname || '—';
+            document.getElementById('status-token').textContent = (data.access_token || '').substring(0, 20) + '...';
+            document.getElementById('status-msg').textContent = data.message || 'Token renovado';
+          } else {
+            alert('✅ ' + data.message + '\nUser: ' + data.nickname + '\nNovo token: ' + data.access_token.substring(0, 20) + '...');
+          }
+        } else {
+          if (updateModal) document.getElementById('status-msg').textContent = data.error || 'Falha ao renovar';
+          else alert('❌ ' + (data.error || 'Falha ao renovar'));
+        }
+      } catch (error) {
+        if (updateModal) document.getElementById('status-msg').textContent = 'Erro: ' + error.message;
+        else alert('❌ Erro: ' + error.message);
+      }
+    }
+    // Fechar modal clicando fora
+    window.addEventListener('click', function(event){
+      const m2 = document.getElementById('modal-status');
+      if (event.target === m2) fecharModalStatus();
+    });
+  </script>
+    
+</body>
+</html>

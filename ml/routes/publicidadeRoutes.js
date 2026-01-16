@@ -1,0 +1,42 @@
+// routes/publicidadeRoutes.js
+const express = require("express");
+const router = express.Router();
+
+const PublicidadeController = require("../controllers/PublicidadeController");
+
+// ==========================================
+// Product Ads – Campanhas, Itens, CSV, Gráfico
+// Prefixo no index.js: app.use('/api/publicidade', publicidadeRoutes);
+// ==========================================
+
+// Campanhas + métricas agregadas
+// GET /api/publicidade/product-ads/campaigns?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD
+router.get("/product-ads/campaigns", PublicidadeController.listarCampanhas);
+
+// Exportar CSV (NOVO) — a partir da tabela de anúncios da campanha
+// GET /api/publicidade/product-ads/campaigns/:id/items/export.csv?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD
+// -> deve baixar um CSV com colunas: mlb, campanha
+router.get(
+  "/product-ads/campaigns/:id/items/export.csv",
+  PublicidadeController.exportarItensCampanhaCsv
+);
+
+// Itens (anúncios) de uma campanha específica
+// GET /api/publicidade/product-ads/campaigns/:id/items?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD
+router.get(
+  "/product-ads/campaigns/:id/items",
+  PublicidadeController.listarItensCampanha
+);
+
+// Exportar itens da campanha em CSV (LEGADO - compatibilidade)
+// GET /api/publicidade/product-ads/campaigns/:id/export?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD
+router.get(
+  "/product-ads/campaigns/:id/export",
+  PublicidadeController.exportarItensCampanhaCsv
+);
+
+// Métricas diárias (para o gráfico de linha)
+// GET /api/publicidade/product-ads/metrics/daily?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD
+router.get("/product-ads/metrics/daily", PublicidadeController.metricasDiarias);
+
+module.exports = router;

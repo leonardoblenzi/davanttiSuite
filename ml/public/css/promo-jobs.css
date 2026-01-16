@@ -1,0 +1,195 @@
+/* ===== Promo Jobs (sidebar/painel) – tema ML ===== */
+:root{
+  --ml-yellow:#ffe600;
+  --ml-blue:#3483fa;
+  --ml-dark:#333333;
+  --ml-text:#2f2f2f;
+  --ml-muted:#6b7280;
+  --ml-card:#ffffff;
+  --border:#e5e7eb;
+}
+
+/* Painel fixo no canto inferior direito */
+#bulkJobsPanel,
+.jobs-panel{
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  width: 360px;
+  max-height: 70vh;            /* altura máxima com rolagem */
+  overflow: auto;
+
+  background: var(--ml-card);
+  color: var(--ml-text);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.18);
+  z-index: 9999;
+
+  /* tipografia padrão do painel */
+  font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+
+  /* padding interno para a versão consolidada */
+  padding: 10px;
+}
+
+#bulkJobsPanel.hidden,
+.jobs-panel.hidden{ display:none; }
+
+#bulkJobsPanel.collapsed .job-list,
+.jobs-panel.collapsed .job-list{ display:none; }
+
+/* Cabeçalho do painel */
+#bulkJobsPanel .job-head,
+.jobs-panel .job-head{
+  position: sticky;
+  top: 0;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding: 6px 6px 8px 6px;
+  background: var(--ml-card);
+  border-bottom: 1px solid #f1f5f9;
+  z-index: 1;
+}
+
+#bulkJobsPanel .head-actions,
+.jobs-panel .head-actions{ display:flex; gap:6px; }
+
+/* Botões do cabeçalho */
+#bulkJobsPanel .btn.ghost.icon,
+.jobs-panel .btn.ghost.icon{
+  border: 1px solid #e5e7eb;
+  background:#f8fafc;
+  color:#111827;
+  border-radius:8px;
+  height:28px; width:28px; font-weight:700; line-height:1;
+}
+
+/* Área com a lista de jobs */
+#bulkJobsPanel .job-list,
+.jobs-panel .job-list{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  padding:8px 2px;
+}
+
+/* Cada linha de job (alinha com o HTML/JS) */
+#bulkJobsPanel .job-row,
+.jobs-panel .job-row{
+  position: relative;
+  padding: 10px 28px 10px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  margin: 0;
+  background: #f8ffff;
+}
+
+#bulkJobsPanel .job-row.done,
+.jobs-panel .job-row.done{
+  background: #ecfeff; /* destaque leve para concluídos */
+}
+
+/* Título e estado */
+#bulkJobsPanel .job-title,
+.jobs-panel .job-title{
+  font-weight: 800;
+  color:#0f172a;
+  display:flex; align-items:center; gap:6px;
+  margin-bottom: 2px;
+}
+
+#bulkJobsPanel .job-state,
+.jobs-panel .job-state{
+  color: var(--ml-muted);
+  font-size: 12px;
+  margin: 6px 0;
+}
+
+/* Barra de progresso */
+#bulkJobsPanel .job-bar,
+.jobs-panel .job-bar{
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+#bulkJobsPanel .job-bar-fill,
+.jobs-panel .job-bar-fill{
+  height: 100%;
+  width: 0;
+  background: var(--ml-blue); /* cor do progresso */
+  transition: width .25s ease;
+}
+
+/* Botões escopados ao painel */
+#bulkJobsPanel .btn,
+.jobs-panel .btn{
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: #475569;
+  font: inherit;
+}
+
+#bulkJobsPanel .btn.ghost:hover,
+.jobs-panel .btn.ghost:hover{
+  background:#f1f5f9;
+}
+
+/* Botão × (remover job) */
+#bulkJobsPanel .job-dismiss,
+.jobs-panel .job-dismiss{
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background:#fff;
+  color:#111827;
+  line-height:1;
+}
+#bulkJobsPanel .job-dismiss:hover,
+.jobs-panel .job-dismiss:hover{ background:#f8fafc; }
+
+.muted{ color:#94a3b8; }
+
+/* --- badges (pills) por conta --- */
+.job-title .job-badge{
+  display:inline-block;
+  padding: 2px 8px;
+  margin-left: 6px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  border: 1px solid transparent;
+  vertical-align: middle;
+}
+
+/* classes específicas por conta */
+.job-badge.badge-drossi{
+  background: #e0ecff; color: #1e40af; border-color: #93c5fd;
+}
+.job-badge.badge-diplany{
+  background: #cffafe; color: #155e75; border-color: #67e8f9;
+}
+.job-badge.badge-rossidecor{
+  background: #fee2e2; color: #7f1d1d; border-color: #fecaca;
+}
+
+/* fallback usado pelo JS quando não há mapeamento: .badge-generic */
+.job-badge.badge-generic,
+.job-badge.badge-default{
+  background: #f1f5f9; color: #334155; border-color: #cbd5e1;
+}
+
+/* Responsivo: telas muito baixas */
+@media (max-height: 700px){
+  #bulkJobsPanel,
+  .jobs-panel{ max-height: 65vh; }
+}
