@@ -473,7 +473,7 @@ function fecharModalDetalhes() {
 async function verResultados(jobId) {
   currentJobId = jobId;
   try {
-    const resp = await fetch(`/api/pesquisa-descricao/jobs/${jobId}?_=` + Date.now(), { cache:'no-store' });
+    const resp = await fetch(`/ml/api/pesquisa-descricao/jobs/${jobId}?_=` + Date.now(), { cache:'no-store' });
     const jobData = await resp.json();
 
     const totalMLBs  = jobData.total_mlbs || jobData.total || 1;

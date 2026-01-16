@@ -21,7 +21,7 @@ async function searchKeywordTrends() {
 
     try {
         // A requisição agora é sempre para a rota de 'trends' e não precisa de parâmetro 'source'
-        const response = await fetch(`/api/keyword-analytics/trends?keyword=${encodeURIComponent(keyword)}`);
+        const response = await fetch(`/ml/api/keyword-analytics/trends?keyword=${encodeURIComponent(keyword)}`);
         const result = await response.json();
 
         if (!result.success) {

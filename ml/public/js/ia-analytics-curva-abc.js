@@ -465,7 +465,7 @@
     setLoading(true);
     try {
       const params = new URLSearchParams(getFilters()).toString();
-      const r = await fetch(`/api/analytics/abc-ml/summary?${params}`, {
+      const r = await fetch(`/ml/api/analytics/abc-ml/summary?${params}`, {
         credentials: "same-origin",
         cache: "no-store",
       });
