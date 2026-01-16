@@ -61,7 +61,7 @@ function isApiCall(req) {
   const accept = String(req.headers?.accept || "").toLowerCase();
   const xrw = String(req.headers?.["x-requested-with"] || "").toLowerCase();
   return (
-    p.startsWith("/ml/api/") ||
+    p.startsWith("/api/") ||
     accept.includes("application/json") ||
     xrw === "xmlhttprequest"
   );

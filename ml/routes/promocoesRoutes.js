@@ -244,7 +244,7 @@ function computeDescPctServer(it, promotionType, promotionBenefits) {
 /** Lista promoções disponíveis para o vendedor atual
  * GET /api/promocoes/users?limit=50&offset=0&status=started|scheduled|pending|all
  */
-core.get("/ml/api/promocoes/users", async (req, res) => {
+core.get("/api/promocoes/users", async (req, res) => {
   try {
     const creds = res.locals.mlCreds || {};
 
@@ -492,7 +492,7 @@ core.get("/ml/api/promocoes/users", async (req, res) => {
  * GET /api/promocoes/items/:itemId
  * -> Proxy para https://api.mercadolibre.com/seller-promotions/items/:ITEM_ID?app_version=v2
  */
-core.get("/ml/api/promocoes/items/:itemId", async (req, res) => {
+core.get("/api/promocoes/items/:itemId", async (req, res) => {
   try {
     const creds = res.locals.mlCreds || {};
     const { itemId } = req.params;
@@ -527,7 +527,7 @@ core.get("/ml/api/promocoes/items/:itemId", async (req, res) => {
  * GET /api/promocoes/items/:itemId/offer-ids
  * -> { ok:true, offer_ids:["OFFER-..."] } | { ok:false, error:"offer_id_not_found" }
  */
-core.get("/ml/api/promocoes/items/:itemId/offer-ids", async (req, res) => {
+core.get("/api/promocoes/items/:itemId/offer-ids", async (req, res) => {
   try {
     const creds = res.locals.mlCreds || {};
     const { itemId } = req.params;
@@ -585,7 +585,7 @@ core.get("/ml/api/promocoes/items/:itemId/offer-ids", async (req, res) => {
  *    • se houver deal_price (started), usa deal_price/original_price
  *    • senão, usa candidato do ML (min -> suggested -> max) para estimar o %
  */
-core.get("/ml/api/promocoes/promotions/:promotionId/items", async (req, res) => {
+core.get("/api/promocoes/promotions/:promotionId/items", async (req, res) => {
   try {
     const creds = res.locals.mlCreds || {};
     const { promotionId } = req.params;
@@ -761,7 +761,7 @@ core.get("/ml/api/promocoes/promotions/:promotionId/items", async (req, res) => 
  * POST /api/promocoes/apply
  * body: { promotion_id, promotion_type, items: [{ id, deal_price?, top_deal_price?, offer_id? }] }
  */
-core.post("/ml/api/promocoes/apply", async (req, res) => {
+core.post("/api/promocoes/apply", async (req, res) => {
   try {
     const creds = res.locals.mlCreds || {};
     const { promotion_id, promotion_type, items } = req.body || {};
@@ -886,7 +886,7 @@ core.post("/ml/api/promocoes/apply", async (req, res) => {
 
 // APLICAR UM ITEM EM UMA CAMPANHA
 // POST /api/promocoes/items/:itemId/apply
-core.post("/ml/api/promocoes/items/:itemId/apply", async (req, res) => {
+core.post("/api/promocoes/items/:itemId/apply", async (req, res) => {
   try {
     const creds = res.locals.mlCreds || {};
     const { itemId } = req.params;
@@ -977,7 +977,7 @@ core.post("/ml/api/promocoes/items/:itemId/apply", async (req, res) => {
  * =========================================================== */
 // POST /api/promocoes/promotions/:promotionId/apply-bulk
 core.post(
-  "/ml/api/promocoes/promotions/:promotionId/apply-bulk",
+  "/api/promocoes/promotions/:promotionId/apply-bulk",
   async (req, res) => {
     try {
       if (
@@ -1065,7 +1065,7 @@ core.post(
 );
 
 // === PREPARAR JOB EM MASSA (todas as páginas/filtrados) – caminho legado ===
-core.post("/ml/api/promocoes/bulk/prepare", async (req, res) => {
+core.post("/api/promocoes/bulk/prepare", async (req, res) => {
   try {
     if (
       !PromoJobsService ||
@@ -1115,7 +1115,7 @@ core.post("/ml/api/promocoes/bulk/prepare", async (req, res) => {
 });
 
 /** Jobs – barra lateral de progresso (lista + detalhe + remover em massa) */
-core.get("/ml/api/promocoes/jobs", async (_req, res) => {
+core.get("/api/promocoes/jobs", async (_req, res) => {
   try {
     // coleta das duas fontes já existentes
     const ours = PromoBulkRemove?.listRecent
@@ -1199,7 +1199,7 @@ core.get("/ml/api/promocoes/jobs", async (_req, res) => {
   }
 });
 
-core.get("/ml/api/promocoes/jobs/:job_id", async (req, res) => {
+core.get("/api/promocoes/jobs/:job_id", async (req, res) => {
   try {
     const id = String(req.params.job_id || "");
     const j = PromoBulkRemove?.jobDetail ? PromoBulkRemove.jobDetail(id) : null;
@@ -1218,7 +1218,7 @@ core.get("/ml/api/promocoes/jobs/:job_id", async (req, res) => {
 });
 
 // Iniciar job de REMOÇÃO em massa (via seu service -> adapter)
-core.post("/ml/api/promocoes/jobs/remove", async (req, res) => {
+core.post("/api/promocoes/jobs/remove", async (req, res) => {
   try {
     if (!PromoBulkRemove?.startRemoveJob) {
       return res
@@ -1256,7 +1256,7 @@ core.post("/ml/api/promocoes/jobs/remove", async (req, res) => {
  *
  * Usada pelo botão "Selecionar toda a campanha (filtrados)" no front.
  */
-core.post("/ml/api/promocoes/selection/prepare", async (req, res) => {
+core.post("/api/promocoes/selection/prepare", async (req, res) => {
   try {
     const {
       promotion_id,
@@ -1437,7 +1437,7 @@ core.post("/ml/api/promocoes/selection/prepare", async (req, res) => {
  * Dispara job em massa (apply/remove) a partir do token da seleção preparada.
  * Body: { token, action: "apply"|"remove", values?: { dryRun?: boolean } }
  */
-core.post("/ml/api/promocoes/jobs/apply-mass", async (req, res) => {
+core.post("/api/promocoes/jobs/apply-mass", async (req, res) => {
   try {
     if (
       !PromoJobsService ||
@@ -1522,18 +1522,18 @@ router.use(core);
 
 // Aliases: reescrevem a URL antes de cair no "core" para apontar para /api/promocoes/*
 router.use(
-  "/ml/api/promocao",
+  "/api/promocao",
   (req, _res, next) => {
-    req.url = "/ml/api/promocoes" + req.url; // ex.: "/users" -> "/ml/api/promocoes/users"
+    req.url = "/api/promocoes" + req.url; // ex.: "/users" -> "/api/promocoes/users"
     next();
   },
   core
 );
 
 router.use(
-  "/ml/api/promotions",
+  "/api/promotions",
   (req, _res, next) => {
-    req.url = "/ml/api/promocoes" + req.url;
+    req.url = "/api/promocoes" + req.url;
     next();
   },
   core

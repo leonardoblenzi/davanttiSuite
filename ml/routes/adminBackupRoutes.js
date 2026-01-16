@@ -6,8 +6,8 @@ const db = require("../db/db");
 const router = express.Router();
 
 // IMPORTANTE: gate master é aplicado no index.js via:
-// app.use("/ml/api/admin", ensureMasterOnly, adminUsuariosRoutes);
-// app.use("/ml/api/admin", ensureMasterOnly, adminBackupRoutes);
+// app.use("/api/admin", ensureMasterOnly, adminUsuariosRoutes);
+// app.use("/api/admin", ensureMasterOnly, adminBackupRoutes);
 
 function nowStamp() {
   const d = new Date();

@@ -67,7 +67,7 @@ module.exports = function createMlApp() {
       console.warn("⚠️ [ML] JWT_SECRET não definido.");
     }
     const authRoutes = require("./routes/authRoutes");
-    app.use("/ml/api/auth", authRoutes);
+    app.use("/api/auth", authRoutes);
     console.log("✅ [ML] AuthRoutes carregado");
   } catch (e) {
     console.error("❌ [ML] Erro ao carregar AuthRoutes:", e.message);
@@ -83,7 +83,7 @@ module.exports = function createMlApp() {
     if (p === "/cadastro") return true;
     if (p === "/selecao-plataforma") return true;
 
-    if (p.startsWith("/ml/api/auth")) return true;
+    if (p.startsWith("/api/auth")) return true;
 
     if (
       p.startsWith("/css/") ||
@@ -169,7 +169,7 @@ module.exports = function createMlApp() {
   // ✅ Daqui pra baixo: protegido
   // ==========================================
 
-  app.post("/ml/api/ml/logout", noCache, (req, res) => {
+  app.post("/api/ml/logout", noCache, (req, res) => {
     // (deixa path "/" por enquanto; no passo de isolamento vamos prefixar cookie/paths)
     res.clearCookie("auth_token", { path: "/" });
     res.clearCookie("ml_account", { path: "/" });

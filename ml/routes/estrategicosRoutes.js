@@ -28,19 +28,19 @@ const withAccount = ensureAccount ? [ensureAccount] : [];
 /**
  * GET /api/estrategicos
  */
-router.get("/ml/api/estrategicos", ...withAccount, EstrategicosController.list);
+router.get("/api/estrategicos", ...withAccount, EstrategicosController.list);
 
 /**
  * POST /api/estrategicos
  * Upsert de 1 item.
  */
-router.post("/ml/api/estrategicos", ...withAccount, EstrategicosController.upsert);
+router.post("/api/estrategicos", ...withAccount, EstrategicosController.upsert);
 
 /**
  * PUT /api/estrategicos/:id
  */
 router.put(
-  "/ml/api/estrategicos/:id",
+  "/api/estrategicos/:id",
   ...withAccount,
   EstrategicosController.update
 );
@@ -49,7 +49,7 @@ router.put(
  * DELETE /api/estrategicos/:mlb (compat)
  */
 router.delete(
-  "/ml/api/estrategicos/:mlb",
+  "/api/estrategicos/:mlb",
   ...withAccount,
   EstrategicosController.remove
 );
@@ -58,7 +58,7 @@ router.delete(
  * DELETE /api/estrategicos/id/:id
  */
 router.delete(
-  "/ml/api/estrategicos/id/:id",
+  "/api/estrategicos/id/:id",
   ...withAccount,
   EstrategicosController.removeById
 );
@@ -67,7 +67,7 @@ router.delete(
  * POST /api/estrategicos/replace
  */
 router.post(
-  "/ml/api/estrategicos/replace",
+  "/api/estrategicos/replace",
   ...withAccount,
   EstrategicosController.replace
 );
@@ -80,7 +80,7 @@ router.post(
  * mas aqui já deixamos a rota por ID em /id/:id/sync para evitar conflito de vez.
  */
 router.post(
-  "/ml/api/estrategicos/:mlb/sync",
+  "/api/estrategicos/:mlb/sync",
   ...withAccount,
   EstrategicosController.syncByMlb
 );
@@ -90,7 +90,7 @@ router.post(
  * POST /api/estrategicos/id/:id/sync
  */
 router.post(
-  "/ml/api/estrategicos/id/:id/sync",
+  "/api/estrategicos/id/:id/sync",
   ...withAccount,
   EstrategicosController.syncOne
 );
@@ -99,7 +99,7 @@ router.post(
  * POST /api/estrategicos/sync (sync all)
  */
 router.post(
-  "/ml/api/estrategicos/sync",
+  "/api/estrategicos/sync",
   ...withAccount,
   EstrategicosController.syncAll
 );
@@ -108,7 +108,7 @@ router.post(
  * POST /api/estrategicos/apply
  */
 router.post(
-  "/ml/api/estrategicos/apply",
+  "/api/estrategicos/apply",
   ...withAccount,
   EstrategicosController.apply
 );

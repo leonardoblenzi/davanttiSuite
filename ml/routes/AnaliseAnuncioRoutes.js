@@ -22,7 +22,7 @@ router.use((_req, res, next) => {
 /**
  * IMPORTANTE:
  * Este router deve ser montado no index.js assim:
- *   app.use("/ml/api/analise-anuncios", require("./routes/AnaliseAnuncioRoutes"));
+ *   app.use("/api/analise-anuncios", require("./routes/AnaliseAnuncioRoutes"));
  *
  * Observação:
  * No seu index.js, estas rotas já estão protegidas por:
