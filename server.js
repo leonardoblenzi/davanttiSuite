@@ -5,7 +5,16 @@ require("dotenv").config();
 const express = require("express");
 
 const createMlApp = require("./ml"); // ml/index.js exporta createMlApp
-const createShopeeApp = require("./shopee"); // vamos ajustar já já
+
+// ✅ Shopee opcional (não derruba o deploy se ainda não existe)
+let createShopeeApp = null;
+try {
+  createShopeeApp = require("./shopee"); // quando existir, vai montar
+  console.log("✅ Shopee carregado");
+} catch (e) {
+  console.warn("⚠️ Shopee ainda não configurado. Subindo só ML.");
+  console.warn("   Motivo:", e?.message || e);
+}
 
 const app = express();
 
@@ -17,12 +26,24 @@ app.get("/healthz", (_req, res) =>
   res.json({ ok: true, app: "davanttiSuite" })
 );
 
-// ✅ Home: manda pra ML (ou cria uma tela de seleção depois)
+// ✅ Home: manda pra ML
 app.get("/", (_req, res) => res.redirect("/ml"));
 
-// ✅ Monta os sub-apps
+// ✅ Monta ML
 app.use("/ml", createMlApp());
-app.use("/shopee", createShopeeApp());
+
+// ✅ Monta Shopee só se existir
+if (typeof createShopeeApp === "function") {
+  app.use("/shopee", createShopeeApp());
+} else {
+  // opcional: responder algo amigável em /shopee enquanto não existe
+  app.get("/shopee", (_req, res) =>
+    res.status(200).send("Shopee em construção ✅")
+  );
+  app.get("/shopee/*", (_req, res) =>
+    res.status(404).json({ ok: false, error: "Shopee ainda não habilitado." })
+  );
+}
 
 // 404 geral
 app.use((req, res) => {
@@ -39,6 +60,6 @@ app.listen(PORT, "0.0.0.0", () => {
   console.log("🚀 ================================");
   console.log(`🌐 Suite rodando em http://localhost:${PORT}`);
   console.log("👉 ML:      /ml");
-  console.log("👉 Shopee:  /shopee");
+  console.log("👉 Shopee:  /shopee (opcional)");
   console.log("🚀 ================================");
 });
