@@ -3,7 +3,7 @@
 const jwt = require("jsonwebtoken");
 
 // ✅ Aceita o padrão novo (ML_) e mantém compatibilidade com o antigo
-const JWT_SECRET = process.env.ML_JWT_SECRET || process.env.JWT_SECRET;
+const JWT_SECRET = process.env.ML_JWT_SECRET || (process.env.ML_JWT_SECRET || process.env.JWT_SECRET);
 if (!JWT_SECRET) {
   throw new Error(
     "JWT_SECRET não definido. Configure ML_JWT_SECRET (preferido) ou JWT_SECRET no .env / Render Environment."

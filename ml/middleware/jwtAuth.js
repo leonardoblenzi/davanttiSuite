@@ -7,7 +7,7 @@ function ensureAuthApi(req, res, next) {
     const token = req.cookies?.auth_token;
     if (!token) return res.status(401).json({ ok: false, error: 'Não autenticado.' });
 
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    const payload = jwt.verify(token, (process.env.ML_JWT_SECRET || process.env.JWT_SECRET));
     req.user = payload; // { uid, email, nivel, nome }
     return next();
   } catch (e) {

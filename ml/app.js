@@ -63,7 +63,7 @@ module.exports = function createMlApp() {
   // ✅ Auth Routes públicas
   // ==================================================
   try {
-    if (!process.env.JWT_SECRET) {
+    if (!(process.env.ML_JWT_SECRET || process.env.JWT_SECRET)) {
       console.warn("⚠️ [ML] JWT_SECRET não definido.");
     }
     const authRoutes = require("./routes/authRoutes");
