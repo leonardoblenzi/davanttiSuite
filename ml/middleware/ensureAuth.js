@@ -2,10 +2,11 @@
 
 const jwt = require("jsonwebtoken");
 
-const JWT_SECRET = process.env.JWT_SECRET;
+// ✅ Aceita o padrão novo (ML_) e mantém compatibilidade com o antigo
+const JWT_SECRET = process.env.ML_JWT_SECRET || process.env.JWT_SECRET;
 if (!JWT_SECRET) {
   throw new Error(
-    "JWT_SECRET não definido. Configure no .env / Render Environment."
+    "JWT_SECRET não definido. Configure ML_JWT_SECRET (preferido) ou JWT_SECRET no .env / Render Environment."
   );
 }
 
@@ -52,9 +53,7 @@ function readToken(req) {
 
 function wantsHtml(req) {
   const accept = String(req.headers?.accept || "").toLowerCase();
-  return (
-    accept.includes("text/html") || accept.includes("application/xhtml+xml")
-  );
+  return accept.includes("text/html") || accept.includes("application/xhtml+xml");
 }
 
 function isApiCall(req) {
@@ -85,7 +84,7 @@ function unauthorized(req, res, reason = "Não autenticado") {
 
   // ✅ navegação (GET HTML): pode redirecionar
   // ✅ MUDANÇA: antes era /login
-  return res.redirect((req.baseUrl||"") + "/selecao-plataforma");
+  return res.redirect((req.baseUrl || "") + "/selecao-plataforma");
 }
 
 function ensureAuth(req, res, next) {
@@ -116,7 +115,7 @@ function requireNivel(nivelNecessario) {
 
     if (String(u.nivel) !== String(nivelNecessario)) {
       if (!isApiCall(req) && wantsHtml(req) && req.method === "GET") {
-        return res.redirect((req.baseUrl||"") + "/nao-autorizado");
+        return res.redirect((req.baseUrl || "") + "/nao-autorizado");
       }
       return res.status(403).json({ ok: false, error: "Acesso negado." });
     }
