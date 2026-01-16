@@ -3,18 +3,10 @@
 
 require("dotenv").config();
 const express = require("express");
+const path = require("path");
 
 const createMlApp = require("./ml"); // ml/index.js exporta createMlApp
-
-// ✅ Shopee opcional (não derruba o deploy se ainda não existe)
-let createShopeeApp = null;
-try {
-  createShopeeApp = require("./shopee"); // quando existir, vai montar
-  console.log("✅ Shopee carregado");
-} catch (e) {
-  console.warn("⚠️ Shopee ainda não configurado. Subindo só ML.");
-  console.warn("   Motivo:", e?.message || e);
-}
+// const createShopeeApp = require("./shopee"); // depois
 
 const app = express();
 
@@ -26,24 +18,22 @@ app.get("/healthz", (_req, res) =>
   res.json({ ok: true, app: "davanttiSuite" })
 );
 
-// ✅ Home: manda pra ML
-app.get("/", (_req, res) => res.redirect("/ml"));
+// ✅ Home da suite: SEMPRE vai pra seleção de plataforma (suite)
+app.get("/", (_req, res) => res.redirect("/selecao-plataforma"));
 
-// ✅ Monta ML
+// ✅ Página de seleção (suite) usando a view que já existe no ML
+app.get("/selecao-plataforma", (_req, res) => {
+  return res.sendFile(
+    path.join(__dirname, "ml", "views", "selecao-plataforma.html")
+  );
+});
+
+// ✅ Escolha da plataforma (suite)
+app.get("/go/ml", (_req, res) => res.redirect("/ml/login"));
+app.get("/go/shopee", (_req, res) => res.status(200).send("Shopee em construção"));
+
+// ✅ Monta ML em /ml
 app.use("/ml", createMlApp());
-
-// ✅ Monta Shopee só se existir
-if (typeof createShopeeApp === "function") {
-  app.use("/shopee", createShopeeApp());
-} else {
-  // opcional: responder algo amigável em /shopee enquanto não existe
-  app.get("/shopee", (_req, res) =>
-    res.status(200).send("Shopee em construção ✅")
-  );
-  app.get("/shopee/*", (_req, res) =>
-    res.status(404).json({ ok: false, error: "Shopee ainda não habilitado." })
-  );
-}
 
 // 404 geral
 app.use((req, res) => {
@@ -59,7 +49,7 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log("🚀 ================================");
   console.log(`🌐 Suite rodando em http://localhost:${PORT}`);
+  console.log("👉 Seleção: /selecao-plataforma");
   console.log("👉 ML:      /ml");
-  console.log("👉 Shopee:  /shopee (opcional)");
   console.log("🚀 ================================");
 });
