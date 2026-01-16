@@ -4,6 +4,10 @@
   "private": true,
   "main": "server.js",
   "type": "commonjs",
+  "workspaces": [
+    "ml",
+    "shopee"
+  ],
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js"
