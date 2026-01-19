@@ -99,8 +99,13 @@ function deny(
   res,
   { status = 401, error = "Acesso negado", redirect = "/select-conta" } = {},
 ) {
-  if (wantsHtml(req) && req.method === "GET") return res.redirect(redirect);
-  return res.status(status).json({ ok: false, error, redirect });
+  // ✅ baseUrl vai ser "/ml" quando montado na suite
+  const base = req.baseUrl || "";
+
+  const to = redirect.startsWith("/") ? base + redirect : base + "/" + redirect;
+
+  if (wantsHtml(req) && req.method === "GET") return res.redirect(to);
+  return res.status(status).json({ ok: false, error, redirect: to });
 }
 
 function clearOAuthCookie(res) {
