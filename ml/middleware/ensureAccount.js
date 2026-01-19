@@ -27,6 +27,10 @@ const OPEN_PREFIXES = [
   // auth do app (login/cadastro)
   "/api/auth",
 
+  // ✅ ADMIN: não exigir conta (master precisa entrar sem conta)
+  "/api/admin",
+  "/admin",
+
   // páginas necessárias pra escolher/vincular conta
   "/select-conta",
   "/vincular-conta",
@@ -93,7 +97,7 @@ function wantsHtml(req) {
 function deny(
   req,
   res,
-  { status = 401, error = "Acesso negado", redirect = "/select-conta" } = {}
+  { status = 401, error = "Acesso negado", redirect = "/select-conta" } = {},
 ) {
   if (wantsHtml(req) && req.method === "GET") return res.redirect(redirect);
   return res.status(status).json({ ok: false, error, redirect });
@@ -175,7 +179,7 @@ async function getEmpresaDoUsuario(client, usuarioId) {
       where eu.usuario_id = $1
       order by case eu.papel when 'owner' then 1 when 'admin' then 2 else 3 end
       limit 1`,
-    [usuarioId]
+    [usuarioId],
   );
   return r.rows[0] || null;
 }
@@ -198,7 +202,7 @@ async function getOAuthCredsForUserAndContaId(usuarioId, meliContaId) {
          from meli_contas mc
         where mc.id = $1 and mc.empresa_id = $2
         limit 1`,
-      [meliContaId, emp.empresa_id]
+      [meliContaId, emp.empresa_id],
     );
 
     const conta = c.rows[0];
@@ -214,7 +218,7 @@ async function getOAuthCredsForUserAndContaId(usuarioId, meliContaId) {
          from meli_tokens mt
         where mt.meli_conta_id = $1
         limit 1`,
-      [conta.id]
+      [conta.id],
     );
 
     const tok = t.rows[0] || null;
@@ -246,7 +250,7 @@ async function getOAuthCredsForMasterAndContaId(meliContaId) {
          join empresas e on e.id = mc.empresa_id
         where mc.id = $1
         limit 1`,
-      [meliContaId]
+      [meliContaId],
     );
 
     const conta = c.rows[0];
@@ -262,7 +266,7 @@ async function getOAuthCredsForMasterAndContaId(meliContaId) {
          from meli_tokens mt
         where mt.meli_conta_id = $1
         limit 1`,
-      [conta.id]
+      [conta.id],
     );
 
     const tok = t.rows[0] || null;
@@ -289,6 +293,34 @@ function ensureCredsBag(res) {
   return res.locals.mlCreds;
 }
 
+function setMasterNoAccount(res) {
+  // ✅ mínimo pra UI/header não quebrar
+  res.locals.accountMode = "master_no_account";
+  res.locals.accountKey = "master";
+  res.locals.accountLabel = "MASTER (sem conta selecionada)";
+  res.locals.account = {
+    mode: "master_no_account",
+    key: "master",
+    label: res.locals.accountLabel,
+    meli_user_id: null,
+    site_id: "MLB",
+    status: "no_account",
+    empresa_id: null,
+    empresa_nome: null,
+  };
+
+  const creds = ensureCredsBag(res);
+  creds.account_key = "master";
+  creds.meli_conta_id = null;
+  creds.meli_user_id = null;
+  creds.site_id = "MLB";
+  creds.status = "no_account";
+  creds.access_token = null;
+  creds.refresh_token = null;
+  creds.access_expires_at = null;
+  creds.scope = null;
+}
+
 /**
  * ensureAccount
  */
@@ -311,6 +343,18 @@ async function ensureAccount(req, res, next) {
   const raw = req.cookies?.[COOKIE_OAUTH];
   const meliContaId = raw ? Number(raw) : null;
 
+  // ✅ NOVO: MASTER não depende de conta selecionada
+  if (master && (!Number.isFinite(meliContaId) || meliContaId <= 0)) {
+    setMasterNoAccount(res);
+
+    if (ENSURE_ACCOUNT_DEBUG) {
+      console.log(`🔐 ensureAccount master (sem conta) | uid=${uid}`);
+    }
+
+    return next();
+  }
+
+  // usuário comum precisa de conta
   if (!Number.isFinite(meliContaId) || meliContaId <= 0) {
     return deny(req, res, {
       status: 401,
@@ -409,7 +453,7 @@ async function ensureAccount(req, res, next) {
 
     if (ENSURE_ACCOUNT_DEBUG) {
       console.log(
-        `🔐 ensureAccount oauth ok | uid=${uid} master=${master} conta=${creds.meli_conta_id} empresa=${pack.empresa_nome} label="${res.locals.accountLabel}"`
+        `🔐 ensureAccount oauth ok | uid=${uid} master=${master} conta=${creds.meli_conta_id} empresa=${pack.empresa_nome} label="${res.locals.accountLabel}"`,
       );
     }
 
