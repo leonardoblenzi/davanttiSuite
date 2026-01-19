@@ -1,12 +1,29 @@
 // ml/index.js
 "use strict";
 
-require("dotenv").config();
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, ".env") });
 
-const createMlApp = require("./app");
+const createMlAppBase = require("./app");
 
+/**
+ * Factory SYNC (IMPORTANTE):
+ * - precisa ser síncrona pra suite poder fazer:
+ *   app.use("/ml", createMlApp())
+ *
+ * O bootstrap MASTER já roda dentro do app.js (idempotente).
+ */
+function createMlApp() {
+  const app = createMlAppBase();
+  return app;
+}
+
+/**
+ * Execução standalone (node ml/index.js)
+ */
 if (require.main === module) {
   const PORT = process.env.PORT || 3000;
+
   const app = createMlApp();
 
   const server = app.listen(PORT, "0.0.0.0", () => {
@@ -22,7 +39,6 @@ if (require.main === module) {
     if (queueService) {
       try {
         console.log("⏸️ [ML] Pausando sistema de filas...");
-        // mantém o mesmo método que você já tinha
         if (typeof queueService.pausarJob === "function") {
           await queueService.pausarJob();
         }
@@ -30,7 +46,7 @@ if (require.main === module) {
       } catch (error) {
         console.error(
           "❌ [ML] Erro ao pausar sistema de filas:",
-          error.message
+          error?.message || error,
         );
       }
     }
@@ -53,7 +69,7 @@ if (require.main === module) {
       "❌ [ML] Unhandled Rejection at:",
       promise,
       "reason:",
-      reason
+      reason,
     );
   });
   process.on("uncaughtException", (error) => {

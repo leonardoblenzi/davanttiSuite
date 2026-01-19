@@ -12,6 +12,9 @@ const { authMiddleware } = require("./middleware/authMiddleware");
 const { ensureAuth } = require("./middleware/ensureAuth");
 const ensurePermission = require("./middleware/ensurePermission");
 
+// Bootstrap MASTER
+const { ensureMasterUser } = require("./services/bootstrapMaster");
+
 module.exports = function createMlApp() {
   const app = express();
 
@@ -27,7 +30,7 @@ module.exports = function createMlApp() {
   app.use(cors());
   app.use(cookieParser());
 
-  // ✅ Static (vai virar /ml/css, /ml/js... quando montado)
+  // ✅ Static (quando montado na suite em /ml vira /ml/css, /ml/js...)
   app.use(express.static(path.join(__dirname, "public")));
 
   // ✅ FIX favicon
@@ -36,13 +39,22 @@ module.exports = function createMlApp() {
   console.log("🔍 [ML] Carregando módulos...");
 
   // ==================================================
+  // ✅ Bootstrap do MASTER (idempotente)
+  // ==================================================
+  ensureMasterUser()
+    .then(() => console.log("✅ [ML] Bootstrap MASTER ok"))
+    .catch((e) =>
+      console.error("❌ [ML] Bootstrap MASTER falhou:", e?.message || e),
+    );
+
+  // ==================================================
   // Token provider (Curva ABC)
   // ==================================================
   try {
     const { getAccessTokenForAccount } = require("./services/ml-auth");
     app.set("getAccessTokenForAccount", getAccessTokenForAccount);
     console.log("✅ [ML] Token Adapter injetado");
-  } catch (err) {
+  } catch (_err) {
     console.warn("⚠️ [ML] Não foi possível injetar ml-auth.");
   }
 
@@ -61,6 +73,7 @@ module.exports = function createMlApp() {
 
   // ==================================================
   // ✅ Auth Routes públicas
+  // (mantém em /api/auth; na suite vira /ml/api/auth)
   // ==================================================
   try {
     if (!(process.env.ML_JWT_SECRET || process.env.JWT_SECRET)) {
@@ -79,12 +92,21 @@ module.exports = function createMlApp() {
   function isPublicPath(req) {
     const p = req.path || "";
 
+    // páginas públicas
     if (p === "/login") return true;
     if (p === "/cadastro") return true;
     if (p === "/selecao-plataforma") return true;
 
+    // auth
     if (p.startsWith("/api/auth")) return true;
 
+    // healthchecks (Render/monitor)
+    if (p === "/healthz") return true;
+    if (p.startsWith("/api/system/health")) return true;
+    if (p.startsWith("/api/system/stats")) return true;
+    if (p.startsWith("/api/health")) return true;
+
+    // assets
     if (
       p.startsWith("/css/") ||
       p.startsWith("/js/") ||
@@ -107,12 +129,35 @@ module.exports = function createMlApp() {
   app.use(authGate);
   console.log("✅ [ML] AuthGate aplicado");
 
+  // ==================================================
+  // ✅ Compat de API (IMPORTANTE)
+  // --------------------------------------------------
+  // Na suite: /ml/api/xxx chega aqui como /api/xxx (pq app está montado em /ml)
+  //
+  // Seu backend tem MUITA rota declarada como "/ml/api/..." dentro dos routers.
+  // Então fazemos o alias APENAS para /api/* (exceto /api/auth/*):
+  //
+  //   /api/dashboard/...  ->  /ml/api/dashboard/...
+  //
+  // Assim você não precisa reescrever todos os paths do backend.
+  // ==================================================
+  app.use("/api", (req, _res, next) => {
+    // Dentro deste middleware o Express removeu o prefixo "/api",
+    // então req.url começa com "/auth/..." ou "/dashboard/..." etc.
+    if (req.url === "/auth" || req.url.startsWith("/auth/")) return next();
+
+    // evita duplicar caso alguém já chegue com /ml/api...
+    if (req.url === "/ml/api" || req.url.startsWith("/ml/api/")) return next();
+
+    req.url = "/ml/api" + req.url;
+    return next();
+  });
+
   // ==========================================
   // ✅ Rotas públicas de página
   // ==========================================
-
   app.get("/", noCache, (req, res) => {
-    const base = req.baseUrl || ""; // ✅ chave pra funcionar em /ml
+    const base = req.baseUrl || ""; // ✅ funciona quando montado em /ml
     if (req.cookies?.auth_token) {
       return ensureAuth(req, res, () => res.redirect(base + "/dashboard"));
     }
@@ -124,28 +169,49 @@ module.exports = function createMlApp() {
     return res.status(200).json({ ok: true });
   });
 
-  app.get("/selecao-plataforma", noCache, (req, res) => {
+  app.get("/selecao-plataforma", noCache, (_req, res) => {
     return res.sendFile(
-      path.join(__dirname, "views", "selecao-plataforma.html")
+      path.join(__dirname, "views", "selecao-plataforma.html"),
     );
   });
 
-  app.get("/login", noCache, (req, res) => {
+  app.get("/login", noCache, (_req, res) => {
     return res.sendFile(path.join(__dirname, "views", "login.html"));
   });
 
-  app.get("/cadastro", noCache, (req, res) => {
+  app.get("/cadastro", noCache, (_req, res) => {
     return res.sendFile(path.join(__dirname, "views", "cadastro.html"));
   });
 
-  app.get("/nao-autorizado", noCache, (req, res) => {
+  app.get("/nao-autorizado", noCache, (_req, res) => {
     return res
       .status(403)
       .sendFile(path.join(__dirname, "views", "nao-autorizado.html"));
   });
 
   // ==========================================
-  // INICIALIZAR FILAS (ok ficar aqui)
+  // ✅ Middlewares “do ML” (depois do authGate)
+  // ==========================================
+  try {
+    app.use(authMiddleware);
+  } catch (e) {
+    console.warn("⚠️ [ML] authMiddleware não aplicado:", e?.message || e);
+  }
+
+  try {
+    app.use(ensureAccount);
+  } catch (e) {
+    console.warn("⚠️ [ML] ensureAccount não aplicado:", e?.message || e);
+  }
+
+  try {
+    app.use(ensurePermission);
+  } catch (e) {
+    console.warn("⚠️ [ML] ensurePermission não aplicado:", e?.message || e);
+  }
+
+  // ==========================================
+  // INICIALIZAR FILAS
   // ==========================================
   let queueService;
   try {
@@ -155,36 +221,91 @@ module.exports = function createMlApp() {
       .iniciarProcessamento()
       .then(() => console.log("🚀 [ML] Filas iniciadas"))
       .catch((error) =>
-        console.error("❌ [ML] Erro ao iniciar filas:", error.message)
+        console.error("❌ [ML] Erro ao iniciar filas:", error.message),
       );
   } catch (error) {
     console.error("❌ [ML] Erro ao carregar QueueService:", error.message);
     console.warn("⚠️ [ML] Sem filas");
   }
 
-  // 🔥 guarda pra suite poder encerrar depois (passo futuro)
   app.locals.queueService = queueService || null;
 
   // ==========================================
-  // ✅ Daqui pra baixo: protegido
+  // ✅ Logout “ML” (mantém seu comportamento atual)
   // ==========================================
-
-  app.post("/api/ml/logout", noCache, (req, res) => {
-    // (deixa path "/" por enquanto; no passo de isolamento vamos prefixar cookie/paths)
+  app.post("/api/ml/logout", noCache, (_req, res) => {
     res.clearCookie("auth_token", { path: "/" });
     res.clearCookie("ml_account", { path: "/" });
     res.clearCookie("meli_conta_id", { path: "/" });
     return res.json({ ok: true });
   });
 
-  // ... ✅ A PARTIR DAQUI: cola o RESTO do seu index.js exatamente como está
-  // ... tudo que é app.get/app.use/app.post pode permanecer igual
-  // ... Só NÃO copia a parte do app.listen + gracefulShutdown + process.on no final
+  // ==========================================
+  // ✅ ROTAS
+  // ==========================================
+  function safeUse(label, modPath, mountPath = null) {
+    try {
+      const mod = require(modPath);
+
+      // alguns módulos podem exportar { router } em vez de router direto
+      const router = mod?.router || mod;
+
+      if (typeof router !== "function") {
+        console.warn(`⚠️ [ML] ${label} não exporta um router válido.`);
+        return;
+      }
+
+      if (mountPath) app.use(mountPath, router);
+      else app.use(router);
+
+      console.log(`✅ [ML] ${label} carregado`);
+    } catch (e) {
+      console.warn(`⚠️ [ML] Falhou ao carregar ${label}:`, e.message);
+    }
+  }
+
+  // páginas/HTML (dashboard etc)
+  safeUse("HtmlRoutes", "./routes/htmlRoutes");
+
+  // APIs
+  safeUse("accountRoutes", "./routes/accountRoutes");
+  safeUse("meliOAuthRoutes", "./routes/meliOAuthRoutes");
+  safeUse("tokenRoutes", "./routes/tokenRoutes");
+  safeUse("dashboardRoutes", "./routes/dashboardRoutes");
+  safeUse("itemsRoutes", "./routes/itemsRoutes");
+  safeUse("editarAnuncioRoutes", "./routes/editarAnuncioRoutes");
+  safeUse("excluirAnuncioRoutes", "./routes/excluirAnuncioRoutes");
+  safeUse("jardinagemRoutes", "./routes/jardinagemRoutes");
+  safeUse("promocoesRoutes", "./routes/promocoesRoutes");
+  safeUse("removerPromocaoRoutes", "./routes/removerPromocaoRoutes");
+  safeUse("publicidadeRoutes", "./routes/publicidadeRoutes");
+  safeUse("estrategicosRoutes", "./routes/estrategicosRoutes");
+  safeUse("fullRoutes", "./routes/fullRoutes");
+  safeUse("AnaliseAnuncioRoutes", "./routes/AnaliseAnuncioRoutes");
+  safeUse("pesquisaDescricaoRoutes", "./routes/pesquisaDescricaoRoutes");
+  safeUse("PrazoProducaoRoutes", "./routes/prazoProducaoRoutes");
+  safeUse("keywordAnalyticsRoutes", "./routes/keywordAnalyticsRoutes");
+  safeUse("ValidarDimensoesRoutes", "./routes/validarDimensoesRoutes");
+  safeUse(
+    "analytics-filtro-anuncios-routes",
+    "./routes/analytics-filtro-anuncios-routes",
+  );
+  safeUse("analytics-abc-Routes", "./routes/analytics-abc-Routes");
+
+  // Admin
+  safeUse("adminUsuariosRoutes", "./routes/adminUsuariosRoutes");
+  safeUse("adminEmpresasRoutes", "./routes/adminEmpresasRoutes");
+  safeUse("adminVinculosRoutes", "./routes/adminVinculosRoutes");
+  safeUse("adminMeliContasRoutes", "./routes/adminMeliContasRoutes");
+  safeUse("adminMeliTokensRoutes", "./routes/adminMeliTokensRoutes");
+  safeUse("adminOAuthStatesRoutes", "./routes/adminOAuthStatesRoutes");
+  safeUse("adminMigracoesRoutes", "./routes/adminMigracoesRoutes");
+  safeUse("adminBackupRoutes", "./routes/adminBackupRoutes");
 
   // ==========================================
-  // ERRORS (mantém igual)
+  // ERRORS
   // ==========================================
-
+  // eslint-disable-next-line no-unused-vars
   app.use((error, req, res, next) => {
     console.error("❌ [ML] Erro não tratado:", error);
     res.status(500).json({
