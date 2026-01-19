@@ -48,13 +48,25 @@ window.AccountBar = (function () {
           label: String(acc.label || "").trim() || "Conta selecionada",
         };
       } else {
-        if (lbl) lbl.textContent = "nenhuma";
-        if (location.pathname !== "/select-conta") location.replace("/select-conta");
-        return null;
+        const base = (window.mlBase && window.mlBase.basePath) || "";
+        const goSelect = (base ? base : "") + "/select-conta";
+        const isSelect = location.pathname === goSelect;
+        const isAdmin = location.pathname.startsWith(
+          (base ? base : "") + "/admin",
+        );
+
+        if (lbl) lbl.textContent = "Não selecionada";
+
+        // Só força ir pra seleção se NÃO for página admin
+        if (!isSelect && !isAdmin) location.replace(goSelect);
+
+        // botão "trocar conta" deve sempre apontar pro lugar certo
+        if (btn) btn.href = goSelect;
       }
     } catch (e) {
       clearTimeout(timeoutId);
-      if (lbl) lbl.textContent = e?.name === "AbortError" ? "tempo esgotado" : "erro";
+      if (lbl)
+        lbl.textContent = e?.name === "AbortError" ? "tempo esgotado" : "erro";
       // em erro, não redireciona automaticamente pra evitar loop off-line
       return null;
     }
@@ -63,9 +75,10 @@ window.AccountBar = (function () {
       btn.addEventListener(
         "click",
         () => {
-          if (location.pathname !== "/select-conta") window.location.href="/ml/select-conta";
+          if (location.pathname !== "/select-conta")
+            window.location.href = "/ml/select-conta";
         },
-        { once: true }
+        { once: true },
       );
     }
 
