@@ -1,9 +1,10 @@
 // db/migrate.js
 "use strict";
-require("dotenv").config();
 
 const fs = require("fs");
 const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, "..", "..", ".env") });
+
 const { Client } = require("pg");
 
 /**
@@ -60,7 +61,7 @@ async function consolidateSchemaMigrations(client) {
 async function alreadyApplied(client, arquivo) {
   const r = await client.query(
     "select 1 from public.migracoes where arquivo = $1 limit 1",
-    [arquivo]
+    [arquivo],
   );
   return r.rowCount > 0;
 }
@@ -68,15 +69,17 @@ async function alreadyApplied(client, arquivo) {
 async function markApplied(client, arquivo) {
   await client.query(
     "insert into public.migracoes (arquivo) values ($1) on conflict do nothing",
-    [arquivo]
+    [arquivo],
   );
 }
 
 async function main() {
-  const databaseUrl = process.env.DATABASE_URL;
+  // ✅ ALINHADO com db/db.js
+  const databaseUrl = process.env.ML_DATABASE_URL || process.env.DATABASE_URL;
+
   if (!databaseUrl) {
     console.error(
-      "❌ DATABASE_URL não encontrado. Configure no .env (local) ou no Render (Environment)."
+      "❌ ML_DATABASE_URL/DATABASE_URL não encontrado. Configure no .env (local) ou no Render (Environment).",
     );
     process.exit(1);
   }
@@ -94,7 +97,7 @@ async function main() {
 
   if (files.length === 0) {
     console.log(
-      "⚠️ Nenhuma migração encontrada em /db (padrão: 001_nome.sql)."
+      "⚠️ Nenhuma migração encontrada em /db (padrão: 001_nome.sql).",
     );
     return;
   }
