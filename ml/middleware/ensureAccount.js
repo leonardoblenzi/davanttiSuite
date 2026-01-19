@@ -94,18 +94,33 @@ function wantsHtml(req) {
   );
 }
 
+// ===============================
+// Helpers: base path (suite /ml vs standalone /)
+// ===============================
+function mountBase(req) {
+  const b = String(req.baseUrl || '');
+  const i = b.indexOf('/api/');
+  if (i >= 0) return b.slice(0, i) || '';
+  return b;
+}
+
+function withBase(req, path) {
+  const base = mountBase(req);
+  if (!path) return base || '/';
+  if (/^https?:\/\//i.test(path)) return path;
+  const p = path.startsWith('/') ? path : `/${path}`;
+  if (base && (p === base || p.startsWith(base + '/'))) return p;
+  return base + p;
+}
+
 function deny(
   req,
   res,
   { status = 401, error = "Acesso negado", redirect = "/select-conta" } = {},
 ) {
-  // ✅ baseUrl vai ser "/ml" quando montado na suite
-  const base = req.baseUrl || "";
-
-  const to = redirect.startsWith("/") ? base + redirect : base + "/" + redirect;
-
-  if (wantsHtml(req) && req.method === "GET") return res.redirect(to);
-  return res.status(status).json({ ok: false, error, redirect: to });
+  const redir = withBase(req, redirect);
+  if (wantsHtml(req) && req.method === "GET") return res.redirect(redir);
+  return res.status(status).json({ ok: false, error, redirect: redir });
 }
 
 function clearOAuthCookie(res) {

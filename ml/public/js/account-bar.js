@@ -5,6 +5,9 @@
 window.AccountBar = (function () {
   let _loaded = false;
 
+  // ✅ Helper de URL (suite /ml vs standalone /)
+  const U = (p) => (typeof window.mlUrl === "function" ? window.mlUrl(p) : p);
+
   function pickAccountPayload(j = {}) {
     // esperado: { accountType:'oauth', accountKey:'123', label:'...' }
     const key = j.accountKey || (j.current && j.current.id) || null;
@@ -22,7 +25,7 @@ window.AccountBar = (function () {
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     try {
-      const r = await fetch("/ml/api/account/current", {
+      const r = await fetch(U("/api/account/current"), {
         method: "GET",
         credentials: "include",
         cache: "no-store",
@@ -48,25 +51,16 @@ window.AccountBar = (function () {
           label: String(acc.label || "").trim() || "Conta selecionada",
         };
       } else {
-        const base = (window.mlBase && window.mlBase.basePath) || "";
-        const goSelect = (base ? base : "") + "/select-conta";
-        const isSelect = location.pathname === goSelect;
-        const isAdmin = location.pathname.startsWith(
-          (base ? base : "") + "/admin",
-        );
-
-        if (lbl) lbl.textContent = "Não selecionada";
-
-        // Só força ir pra seleção se NÃO for página admin
-        if (!isSelect && !isAdmin) location.replace(goSelect);
-
-        // botão "trocar conta" deve sempre apontar pro lugar certo
-        if (btn) btn.href = goSelect;
+        if (lbl) lbl.textContent = "nenhuma";
+        // ✅ /ml/select-conta na suite, /select-conta no modo standalone
+        if (!String(location.pathname || "").endsWith("/select-conta")) {
+          location.replace(U("/select-conta"));
+        }
+        return null;
       }
     } catch (e) {
       clearTimeout(timeoutId);
-      if (lbl)
-        lbl.textContent = e?.name === "AbortError" ? "tempo esgotado" : "erro";
+      if (lbl) lbl.textContent = e?.name === "AbortError" ? "tempo esgotado" : "erro";
       // em erro, não redireciona automaticamente pra evitar loop off-line
       return null;
     }
@@ -75,10 +69,11 @@ window.AccountBar = (function () {
       btn.addEventListener(
         "click",
         () => {
-          if (location.pathname !== "/select-conta")
-            window.location.href = "/ml/select-conta";
+          if (!String(location.pathname || "").endsWith("/select-conta")) {
+            window.location.href = U("/select-conta");
+          }
         },
-        { once: true },
+        { once: true }
       );
     }
 

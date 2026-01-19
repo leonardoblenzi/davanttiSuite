@@ -683,11 +683,11 @@
       await fetch("/ml/api/account/clear", { method: "POST" });
     } catch (_) {}
     updateJobIdInUrl(null);
-    window.location.href="/ml/select-conta";
+    window.location.href = (typeof window.mlUrl === 'function') ? window.mlUrl('/select-conta') : '/ml/select-conta';
   }
 
   function abrirStatusRapido() {
-    window.location.href="/ml/dashboard#status";
+    window.location.href = (typeof window.mlUrl === 'function') ? window.mlUrl('/dashboard#status') : '/ml/dashboard#status';
   }
 
   // =========================

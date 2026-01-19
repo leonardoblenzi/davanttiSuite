@@ -53,6 +53,27 @@ function cookieOptions() {
 }
 
 // =====================
+// Helpers: base path (suite /ml vs standalone /)
+// =====================
+function mountBase(req) {
+  const b = String(req.baseUrl || '');
+  const i = b.indexOf('/api/');
+  if (i >= 0) return b.slice(0, i) || '';
+  return b;
+}
+
+function withBase(req, path) {
+  let p = String(path || '');
+  if (!p) return mountBase(req) || '/';
+  if (/^https?:\/\//i.test(p)) return p;
+  if (!p.startsWith('/')) p = '/' + p;
+
+  const base = mountBase(req);
+  if (base && (p === base || p.startsWith(base + '/'))) return p;
+  return base + p;
+}
+
+// =====================
 // POST /api/auth/register
 // =====================
 router.post("/register", express.json({ limit: "1mb" }), async (req, res) => {
@@ -135,7 +156,7 @@ router.post("/register", express.json({ limit: "1mb" }), async (req, res) => {
         email: user.email,
         nivel: normalizeNivel(user.nivel),
       },
-      redirect: "/vincular-conta",
+      redirect: withBase(req, '/vincular-conta'),
     });
   } catch (err) {
     if (String(err.code) === "23505") {
@@ -211,7 +232,7 @@ router.post("/login", express.json({ limit: "200kb" }), async (req, res) => {
     res.cookie("auth_token", token, cookieOptions());
 
     // Seu fluxo atual
-    const redirect = "/select-conta";
+    const redirect = withBase(req, '/select-conta');
 
     return res.json({
       ok: true,

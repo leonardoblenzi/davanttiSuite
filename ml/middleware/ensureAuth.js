@@ -71,6 +71,27 @@ function clearAuthCookie(res) {
   res.clearCookie("auth_token", { path: "/" });
 }
 
+// =====================
+// Helpers: base path (suite /ml vs standalone /)
+// =====================
+function mountBase(req) {
+  const b = String(req.baseUrl || "");
+  const i = b.indexOf("/api/");
+  if (i >= 0) return b.slice(0, i) || "";
+  return b;
+}
+
+function withBase(req, path) {
+  const base = mountBase(req);
+  if (!path) return base || "/";
+  if (/^https?:\/\//i.test(path)) return path;
+
+  let p = String(path);
+  if (!p.startsWith("/")) p = "/" + p;
+  if (base && (p === base || p.startsWith(base + "/"))) return p;
+  return base + p;
+}
+
 function unauthorized(req, res, reason = "Não autenticado") {
   // ✅ API/fetch: NUNCA redirecionar (senão volta HTML e quebra seu front)
   if (isApiCall(req) || !wantsHtml(req) || req.method !== "GET") {
@@ -78,13 +99,13 @@ function unauthorized(req, res, reason = "Não autenticado") {
       ok: false,
       error: reason,
       // ✅ MUDANÇA: quando deslogado, manda pra seleção de plataforma
-      redirect: "/selecao-plataforma",
+      redirect: withBase(req, "/selecao-plataforma"),
     });
   }
 
   // ✅ navegação (GET HTML): pode redirecionar
   // ✅ MUDANÇA: antes era /login
-  return res.redirect((req.baseUrl || "") + "/selecao-plataforma");
+  return res.redirect(withBase(req, "/selecao-plataforma"));
 }
 
 function ensureAuth(req, res, next) {
@@ -115,7 +136,7 @@ function requireNivel(nivelNecessario) {
 
     if (String(u.nivel) !== String(nivelNecessario)) {
       if (!isApiCall(req) && wantsHtml(req) && req.method === "GET") {
-        return res.redirect((req.baseUrl || "") + "/nao-autorizado");
+        return res.redirect(withBase(req, "/nao-autorizado"));
       }
       return res.status(403).json({ ok: false, error: "Acesso negado." });
     }

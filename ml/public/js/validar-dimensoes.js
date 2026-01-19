@@ -6,6 +6,9 @@
   const qs = (s, el = document) => el.querySelector(s);
   const qsa = (s, el = document) => Array.from(el.querySelectorAll(s));
 
+  // ✅ Helper de URL (suite /ml vs standalone /)
+  const U = (p) => (typeof window.mlUrl === "function" ? window.mlUrl(p) : p);
+
   const ACCOUNT_LABELS = {
     drossi: 'DRossi Interiores',
     diplany: 'Diplany',
@@ -25,7 +28,7 @@
   async function carregarContaAtual() {
     const el = $('account-current');
     try {
-      const r = await fetch('/ml/api/account/current', { cache: 'no-store' });
+      const r = await fetch(U('/api/account/current'), { cache: 'no-store' });
       const data = await r.json();
       let shown = 'Não selecionada';
 
@@ -50,9 +53,9 @@
 
   async function trocarConta() {
     try {
-      await fetch('/ml/api/account/clear', { method: 'POST' });
+      await fetch(U('/api/account/clear'), { method: 'POST' });
     } catch (_) {}
-    window.location.href = '/select-conta';
+    window.location.href = U('/select-conta');
   }
 
   /* ==========================
@@ -167,7 +170,7 @@
 
   async function fetchDimensoes(mlb) {
     try {
-      const res = await fetch('/ml/api/validar-dimensoes/analisar-item', {
+      const res = await fetch(U('/api/validar-dimensoes/analisar-item'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mlb }),

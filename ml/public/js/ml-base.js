@@ -13,6 +13,11 @@
     if (!path) return base || "/";
     if (path.startsWith("http")) return path;
     if (!path.startsWith("/")) path = "/" + path;
+
+    // ✅ Evita duplicar o prefixo quando alguém já passou /ml/...
+    // Ex.: mlUrl('/ml/select-conta') em ambiente SUITE -> mantém como está.
+    if (base && (path === base || path.startsWith(base + "/"))) return path;
+
     return base + path;
   };
 })();

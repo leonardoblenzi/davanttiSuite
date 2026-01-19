@@ -1,77 +1,82 @@
 // middleware/ensurePermission.js
+// ACL simples baseado em `req.user` (injetado pelo ensureAuth/authMiddleware)
+//
+// ✅ Objetivo:
+// - Permitir usar `app.use(ensurePermission)` sem quebrar (middleware padrão)
+// - Manter compat com o padrão antigo: `ensurePermission.requireAdmin()` etc.
+
 "use strict";
 
-/**
- * Gate único e reutilizável para permissões.
- * Fonte da verdade: req.user (injetado pelo ensureAuth) ou res.locals.user.
- *
- * Níveis aceitos:
- * - "usuario" (ou vazio) -> padrao
- * - "administrador" ou "admin" -> admin
- * - "admin_master" -> master
- */
-
-function resolveNivel(req, res) {
-  const u = req.user || res.locals.user || {};
-  const raw = String(u.nivel || "")
-    .trim()
-    .toLowerCase();
-
-  if (raw === "admin_master" || raw === "master") return "master";
-  if (raw === "administrador" || raw === "admin") return "admin";
-  return "padrao";
+function normalizeNivel(n) {
+  return String(n || "").trim().toLowerCase();
 }
 
-function wantsHtml(req) {
-  const a = req.accepts(["html", "json"]);
-  return a === "html";
+function truthy(v) {
+  return v === true || v === 1 || v === "1" || v === "true";
 }
 
-function isApiCall(req) {
-  const path = req.path || req.originalUrl || "";
-  const accept = String(req.headers?.accept || "");
-  const xrw = String(req.headers?.["x-requested-with"] || "");
+function isMaster(req) {
+  const nivel = normalizeNivel(req.user?.nivel);
+  const role = normalizeNivel(req.user?.role);
+
   return (
-    path.startsWith("/api/") ||
-    accept.includes("application/json") ||
-    xrw.toLowerCase() === "xmlhttprequest"
+    nivel === "admin_master" ||
+    role === "admin_master" ||
+    truthy(req.user?.is_master) ||
+    truthy(req.user?.isMaster) ||
+    truthy(req.user?.flags?.is_master)
   );
 }
 
-function deny(req, res, reason = "Acesso não autorizado.") {
-  // Para API/fetch: 403 JSON
-  if (isApiCall(req) || !wantsHtml(req) || req.method !== "GET") {
-    return res.status(403).json({
-      ok: false,
-      error: reason,
-      redirect: "/nao-autorizado",
-    });
-  }
+function isAdmin(req) {
+  const nivel = normalizeNivel(req.user?.nivel);
+  const role = normalizeNivel(req.user?.role);
 
-  // Para navegação de página (GET): redirect
-  return res.redirect((req.baseUrl||"") + "/nao-autorizado");
+  return (
+    nivel === "administrador" ||
+    role === "administrador" ||
+    truthy(req.user?.is_admin) ||
+    truthy(req.user?.isAdmin) ||
+    truthy(req.user?.flags?.is_admin)
+  );
 }
 
-function requireAdmin() {
-  return function (req, res, next) {
-    const nivel = resolveNivel(req, res);
-    const ok = nivel === "admin" || nivel === "master";
-    if (ok) return next();
-    return deny(req, res);
+function ensurePermission(req, res, next) {
+  // Middleware padrão: só injeta flags úteis pra views/headers
+  const _is_master = isMaster(req);
+  const _is_admin = isAdmin(req);
+  const _is_admin_any = _is_master || _is_admin;
+
+  res.locals = res.locals || {};
+  res.locals.perms = {
+    is_master: _is_master,
+    is_admin: _is_admin,
+    is_admin_any: _is_admin_any,
   };
+
+  return next();
 }
 
-function requireMaster() {
-  return function (req, res, next) {
-    const nivel = resolveNivel(req, res);
-    if (nivel === "master") return next();
-    return deny(req, res);
+function deny(res, status, error) {
+  return res.status(status).json({ ok: false, error });
+}
+
+ensurePermission.requireAdmin = function requireAdmin() {
+  return (req, res, next) => {
+    if (isMaster(req) || isAdmin(req)) return next();
+    return deny(res, 403, "Não autorizado (admin requerido)");
   };
-}
-
-module.exports = {
-  resolveNivel,
-  deny,
-  requireAdmin,
-  requireMaster,
 };
+
+ensurePermission.requireMaster = function requireMaster() {
+  return (req, res, next) => {
+    if (isMaster(req)) return next();
+    return deny(res, 403, "Não autorizado (master requerido)");
+  };
+};
+
+ensurePermission.isMaster = isMaster;
+ensurePermission.isAdmin = isAdmin;
+ensurePermission.normalizeNivel = normalizeNivel;
+
+module.exports = ensurePermission;

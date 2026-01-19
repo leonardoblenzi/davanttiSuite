@@ -7,6 +7,9 @@ console.log("✅ Dashboard.js carregado (single-source)");
 const $ = (id) => document.getElementById(id);
 const qsa = (s, el = document) => Array.from(el.querySelectorAll(s));
 
+// ✅ Helper de URL (suite /ml vs standalone /)
+const U = (p) => (typeof window.mlUrl === "function" ? window.mlUrl(p) : p);
+
 function safeBind(el, ev, fn) {
   if (el) el.addEventListener(ev, fn);
 }
@@ -105,7 +108,7 @@ async function carregarContaAtual() {
   };
 
   try {
-    const r = await fetch("/ml/api/account/current", {
+    const r = await fetch(U("/api/account/current"), {
       method: "GET",
       credentials: "include",
       cache: "no-store",
@@ -131,12 +134,12 @@ async function carregarContaAtual() {
 async function trocarConta() {
   // usa o endpoint que você já tem no projeto (oauth)
   try {
-    await fetch("/ml/api/meli/limpar-selecao", {
+    await fetch(U("/api/meli/limpar-selecao"), {
       method: "POST",
       credentials: "include",
     });
   } catch {}
-  window.location.href="/ml/select-conta";
+  window.location.href = U("/select-conta");
 }
 
 // =========================
@@ -316,7 +319,7 @@ async function carregarDashboard() {
 
   try {
     // ✅ agora usa /summary (e /monthly-sales também funciona)
-    const r = await fetch("/ml/api/dashboard/summary?tz=America%2FSao_Paulo", {
+    const r = await fetch(U("/api/dashboard/summary?tz=America%2FSao_Paulo"), {
       cache: "no-store",
     });
     const txt = await r.text().catch(() => "");
@@ -373,9 +376,11 @@ async function carregarDashboard() {
         period.today ||
         `${monthKey}-${String(period.day_of_month || 1).padStart(2, "0")}`;
 
-      const urlAds = `/ml/api/publicidade/product-ads/metrics/daily?date_from=${encodeURIComponent(
-        firstDay
-      )}&date_to=${encodeURIComponent(today)}`;
+      const urlAds = U(
+        `/api/publicidade/product-ads/metrics/daily?date_from=${encodeURIComponent(
+          firstDay
+        )}&date_to=${encodeURIComponent(today)}`
+      );
       const ra = await fetch(urlAds, {
         credentials: "same-origin",
         cache: "no-store",

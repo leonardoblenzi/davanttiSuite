@@ -16,6 +16,9 @@
 (() => {
   const $ = (sel) => document.querySelector(sel);
 
+  // ✅ Helper de URL (suite /ml vs standalone /)
+  const U = (p) => (typeof window.mlUrl === "function" ? window.mlUrl(p) : p);
+
   const elList = $("#list");
   const elAlert = $("#alert");
   const elCurrent = $("#account-current");
@@ -212,14 +215,14 @@
 
   async function loadMe() {
     try {
-      const { r, data } = await fetchJson("/ml/api/auth/me");
+      const { r, data } = await fetchJson(U("/api/auth/me"));
       if (!r.ok || !data) {
-        window.location.href="/ml/login";
+        window.location.href = U("/login");
         return null;
       }
 
       if (data.logged !== true) {
-        window.location.href="/ml/login";
+        window.location.href = U("/login");
         return null;
       }
 
@@ -229,7 +232,7 @@
     } catch {
       state.me = null;
       state.isMaster = false;
-      window.location.href="/ml/login";
+      window.location.href = U("/login");
       return null;
     }
   }
@@ -525,7 +528,7 @@
   // Backend: loadContas OAuth
   // ===========================
   function buildContasUrl() {
-    const url = new URL(window.location.origin + "/ml/api/meli/contas");
+    const url = new URL(window.location.origin + U("/api/meli/contas"));
 
     if (state.isMaster) {
       if (state.q) url.searchParams.set("q", state.q);
@@ -581,7 +584,7 @@
   // ✅ NOVO: valida seleção sem depender de /api/meli/current (que pode exigir token ML)
   async function validarSelecaoSemTokenML(expectedId) {
     // /api/meli/contas costuma estar em SKIP no authMiddleware => sempre JSON
-    const { r, data } = await fetchJson("/ml/api/meli/contas");
+    const { r, data } = await fetchJson(U("/api/meli/contas"));
     if (!r.ok || !data || data.ok !== true) {
       throw new Error(`Não foi possível validar seleção (HTTP ${r.status}).`);
     }
@@ -599,7 +602,7 @@
 
   async function selecionarContaOAuth(meli_conta_id) {
     try {
-      const { r, data } = await fetchJson("/ml/api/meli/selecionar", {
+      const { r, data } = await fetchJson(U("/api/meli/selecionar"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ meli_conta_id }),
@@ -625,7 +628,7 @@
       }
 
       // ✅ segue para o app
-      window.location.href="/ml/dashboard";
+      window.location.href = U("/dashboard");
     } catch (e) {
       console.error(e);
       showAlert(`Falha ao selecionar conta: ${e.message}`, "err");
@@ -634,7 +637,7 @@
 
   async function limparSelecaoOAuth() {
     try {
-      const { r, data } = await fetchJson("/ml/api/meli/limpar-selecao", {
+      const { r, data } = await fetchJson(U("/api/meli/limpar-selecao"), {
         method: "POST",
       });
 
@@ -655,25 +658,25 @@
   // Binds
   // ===========================
   btnVincular?.addEventListener("click", () => {
-    window.location.href="/ml/vincular-conta";
+    window.location.href = U("/vincular-conta");
   });
 
   btnAdmin?.addEventListener("click", () => {
-    window.location.href="/ml/admin/usuarios";
+    window.location.href = U("/admin/usuarios");
   });
 
   btnSair?.addEventListener("click", async () => {
     try {
-      await fetch("/ml/api/auth/logout", {
+      await fetch(U("/api/auth/logout"), {
         method: "POST",
         credentials: "include",
       });
     } catch {}
-    window.location.href="/ml/login";
+    window.location.href = U("/login");
   });
 
   btnDashboard?.addEventListener("click", () => {
-    window.location.href="/ml/dashboard";
+    window.location.href = U("/dashboard");
   });
 
   btnLimpar?.addEventListener("click", async () => {

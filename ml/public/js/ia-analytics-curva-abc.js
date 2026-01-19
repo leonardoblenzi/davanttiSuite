@@ -261,7 +261,7 @@
             credentials: "include",
           });
         } catch {}
-        location.href="/ml/select-conta";
+        location.href = (typeof window.mlUrl === 'function') ? window.mlUrl('/select-conta') : '/ml/select-conta';
       });
     }
 
@@ -313,7 +313,7 @@
     });
 
     if (!r.ok) {
-      location.href="/ml/select-conta";
+      location.href = (typeof window.mlUrl === 'function') ? window.mlUrl('/select-conta') : '/ml/select-conta';
       return;
     }
 
@@ -322,7 +322,7 @@
     const label = j?.label || j?.current?.label || null;
 
     if (!key) {
-      location.href="/ml/select-conta";
+      location.href = (typeof window.mlUrl === 'function') ? window.mlUrl('/select-conta') : '/ml/select-conta';
       return;
     }
 
