@@ -41,16 +41,37 @@ const INSERT_ORDER = [
 // ======================================================================
 // Helpers
 // ======================================================================
+// Preferimos restaurar no schema do ML (ex.: "ml"), mas aceitamos backups antigos
+// que ainda estavam em "public". Por isso, resolvemos a tabela dinamicamente.
+const DEFAULT_SCHEMA = String(db.ML_DB_SCHEMA || process.env.ML_DB_SCHEMA || "ml").trim();
+
+async function resolveTableSchema(client, tableName) {
+  // Procura primeiro no schema do ML; se não existir, cai pro public.
+  const r = await client.query(
+    `
+    select table_schema
+      from information_schema.tables
+     where table_name = $1
+       and table_schema in ($2, 'public')
+     order by case when table_schema = $2 then 0 else 1 end
+     limit 1
+    `,
+    [tableName, DEFAULT_SCHEMA]
+  );
+  return r.rows?.[0]?.table_schema || DEFAULT_SCHEMA;
+}
+
 async function getTableColumns(client, tableName) {
+  const schema = await resolveTableSchema(client, tableName);
   const r = await client.query(
     `
     select column_name
       from information_schema.columns
-     where table_schema = 'public'
+     where table_schema = $2
        and table_name = $1
      order by ordinal_position
     `,
-    [tableName]
+    [tableName, schema]
   );
   return new Set((r.rows || []).map((x) => x.column_name));
 }
@@ -62,9 +83,11 @@ function pickColumns(availableColsSet, rowObj) {
 }
 
 async function bumpSerial(client, table, idCol = "id") {
+  const schema = await resolveTableSchema(client, table);
+  const tableRef = `${schema}.${table}`;
   const seq = (
     await client.query(`select pg_get_serial_sequence($1, $2) as seq`, [
-      `public.${table}`,
+      tableRef,
       idCol,
     ])
   ).rows?.[0]?.seq;
