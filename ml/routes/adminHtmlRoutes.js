@@ -60,9 +60,26 @@ function sendView(viewFile) {
 }
 
 // ✅ Painel Admin (páginas)
-router.get("/admin/usuarios", noCache, ensureMasterHtml, sendView("admin-usuarios.html"));
-router.get("/admin/empresas", noCache, ensureMasterHtml, sendView("admin-empresas.html"));
-router.get("/admin/vinculos", noCache, ensureMasterHtml, sendView("admin-vinculos.html"));
+router.get(
+  "/admin/usuarios",
+  noCache,
+  ensureMasterHtml,
+  sendView("admin-usuarios.html"),
+);
+router.get(
+  "/admin/empresas",
+  noCache,
+  ensureMasterHtml,
+  sendView("admin-empresas.html"),
+);
+router.get(
+  "/admin/vinculos",
+  noCache,
+  ensureMasterHtml,
+  sendView("admin-vinculos.html"),
+);
+
+// Contas/Tokens ML (rota canônica)
 router.get(
   "/admin/meli-contas",
   noCache,
@@ -75,6 +92,22 @@ router.get(
   ensureMasterHtml,
   sendView("admin-meli-tokens.html"),
 );
+
+// ✅ ALIASES (compat com o menu antigo)
+// Alguns HTMLs apontam para /admin/contas-ml e /admin/tokens-ml
+router.get(
+  "/admin/contas-ml",
+  noCache,
+  ensureMasterHtml,
+  sendView("admin-meli-contas.html"),
+);
+router.get(
+  "/admin/tokens-ml",
+  noCache,
+  ensureMasterHtml,
+  sendView("admin-meli-tokens.html"),
+);
+
 router.get(
   "/admin/oauth-states",
   noCache,
@@ -87,6 +120,11 @@ router.get(
   ensureMasterHtml,
   sendView("admin-migracoes.html"),
 );
-router.get("/admin/backup", noCache, ensureMasterHtml, sendView("admin-backup.html"));
+router.get(
+  "/admin/backup",
+  noCache,
+  ensureMasterHtml,
+  sendView("admin-backup.html"),
+);
 
 module.exports = router;
