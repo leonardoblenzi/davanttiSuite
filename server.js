@@ -38,44 +38,39 @@ async function main() {
   // ✅ Escolha da plataforma (suite)
   app.get("/go/ml", (_req, res) => res.redirect("/ml/login"));
 
+  // ==================================================
+  // ✅ Redirect de compatibilidade: rotas antigas sem /ml
+  // ==================================================
+  // Isso evita 404 quando algum link antigo ainda aponta pra:
+  //   /select-conta, /dashboard, /admin, /api/*, etc.
+  const ML_PREFIX = "/ml";
+  const LEGACY_PREFIXES = [
+    "/login",
+    "/cadastro",
+    "/dashboard",
+    "/select-conta",
+    "/vincular-conta",
+    "/admin",
+    "/api",
+  ];
+
+  app.use((req, res, next) => {
+    const p = req.path || "";
+    if (p === ML_PREFIX || p.startsWith(ML_PREFIX + "/")) return next();
+
+    const isLegacy = LEGACY_PREFIXES.some(
+      (base) => p === base || p.startsWith(base + "/")
+    );
+    if (!isLegacy) return next();
+
+    return res.redirect(307, ML_PREFIX + req.originalUrl);
+  });
+
   // ✅ Shopee (por enquanto)
   app.get("/go/shopee", (_req, res) => {
     // Se você tiver uma URL externa pronta, troca pra:
     // return res.redirect("https://SUA-SHOPEE.onrender.com");
     return res.status(200).send("Shopee em construção");
-  });
-
-  // ============================================================
-  // Legacy redirects (ML sem prefixo /ml)
-  // ============================================================
-  // Se algum link antigo apontar para /dashboard, /admin, /select-conta, /api...
-  // a suite redireciona para /ml/* para evitar 404.
-  const ML_LEGACY_PREFIXES = [
-    "/login",
-    "/cadastro",
-    "/dashboard",
-    "/full",
-    "/select-conta",
-    "/vincular-conta",
-    "/admin",
-    "/api",
-    "/debug",
-    "/test-basic",
-  ];
-
-  app.use((req, res, next) => {
-    const p = req.path || req.originalUrl || "";
-    if (p.startsWith("/ml")) return next();
-    if (p === "/" || p === "/selecao-plataforma" || p.startsWith("/go/")) {
-      return next();
-    }
-
-    const hit = ML_LEGACY_PREFIXES.some((pref) => p === pref || p.startsWith(pref + "/"));
-    if (!hit) return next();
-
-    const target = "/ml" + req.originalUrl; // preserva querystring
-    // 307 preserva método (importante para POST/PUT em /api/...)
-    return res.redirect(307, target);
   });
 
   // ✅ Monta ML em /ml (rotas + views + APIs)
