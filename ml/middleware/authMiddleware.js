@@ -73,6 +73,27 @@ function wantsHtml(req) {
   );
 }
 
+// =====================
+// Helpers: base path (suite /ml vs standalone /)
+// =====================
+function mountBase(req) {
+  const b = String(req.baseUrl || "");
+  const i = b.indexOf("/api/");
+  if (i >= 0) return b.slice(0, i) || "";
+  return b;
+}
+
+function withBase(req, path) {
+  const base = mountBase(req);
+  if (!path) return base || "/";
+  if (/^https?:\/\//i.test(path)) return path;
+
+  let p = String(path);
+  if (!p.startsWith("/")) p = "/" + p;
+  if (base && (p === base || p.startsWith(base + "/"))) return p;
+  return base + p;
+}
+
 /**
  * Decide para onde redirecionar quando falhar token.
  * - Se não há conta selecionada -> /select-conta
@@ -86,9 +107,9 @@ function computeRedirectForTokenFailure(res) {
   return "/select-conta";
 }
 
-function build401Payload(message, res, extra = {}) {
+function build401Payload(message, req, res, extra = {}) {
   const account = getAccountMeta(res);
-  const redirect = computeRedirectForTokenFailure(res);
+  const redirect = withBase(req, computeRedirectForTokenFailure(res));
 
   return {
     ok: false,
@@ -111,17 +132,14 @@ const authMiddleware = async (req, res, next) => {
     const token = await TokenService.renovarTokenSeNecessario(creds);
 
     if (!token) {
-      const redirect = computeRedirectForTokenFailure(res);
+      const redirect = withBase(req, computeRedirectForTokenFailure(res));
 
       if (wantsHtml(req) && req.method === "GET") return res.redirect(redirect);
 
       return res
         .status(401)
         .json(
-          build401Payload(
-            "Token de acesso indisponível para a conta atual",
-            res
-          )
+          build401Payload("Token de acesso indisponível para a conta atual", req, res)
         );
     }
 
@@ -144,7 +162,7 @@ const authMiddleware = async (req, res, next) => {
   } catch (error) {
     console.error("❌ authMiddleware:", error?.message || error);
 
-    const redirect = computeRedirectForTokenFailure(res);
+    const redirect = withBase(req, computeRedirectForTokenFailure(res));
 
     if (wantsHtml(req) && req.method === "GET") return res.redirect(redirect);
 
@@ -154,6 +172,7 @@ const authMiddleware = async (req, res, next) => {
         build401Payload(
           "Token inválido e não foi possível renovar: " +
             (error?.message || "Erro desconhecido"),
+          req,
           res
         )
       );

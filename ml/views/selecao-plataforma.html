@@ -48,13 +48,13 @@
 
         <div class="buttons">
             <!-- ✅ AJUSTE: ir pelo "roteador" da SUITE -->
-            <button class="btn ml-btn" type="button" onclick="location.href='/go/ml'">
+            <button class="btn ml-btn" type="button" onclick="location.href=mlUrl('/go/ml')">
                 <img src="https://logospng.org/download/mercado-livre/logo-mercado-livre-256.png" />
                 Mercado Livre
             </button>
 
             <!-- ✅ AJUSTE: ir pelo "roteador" da SUITE -->
-            <button class="btn sh-btn" type="button" onclick="location.href='/go/shopee'">
+            <button class="btn sh-btn" type="button" onclick="location.href=mlUrl('/go/shopee')">
                 <img src="https://logospng.org/download/shopee/logo-shopee-256.png" />
                 Shopee
             </button>
@@ -62,5 +62,7 @@
         </div>
     </div>
 
+<!-- Base de URLs (/ml vs standalone) -->
+<script src="/ml/js/ml-base.js"></script>
 </body>
 </html>

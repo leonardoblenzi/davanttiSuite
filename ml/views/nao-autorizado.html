@@ -56,7 +56,7 @@
       try {
         await fetch('/ml/api/auth/logout', { method: 'POST' });
       } catch (_) {}
-      window.location.href = '/login';
+      window.location.href=mlUrl('/login');
     });
   </script>
 </body>
