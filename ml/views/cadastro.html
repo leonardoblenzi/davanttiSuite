@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cadastro</title>
 
-  <link rel="stylesheet" href="/ml/css/login.css" />
+  <link rel="stylesheet" href="css/login.css" />
 </head>
 
 <body>
@@ -91,7 +91,7 @@
       </button>
     </form>
   </div>
-  <script src="/ml/js/ml-base.js"></script>
+
   <script>
     (function () {
       const form = document.getElementById('cad-form');
@@ -111,7 +111,7 @@
       }
 
       btnVoltar.addEventListener('click', () => {
-        window.location.href=mlUrl('/login');
+        window.location.href = '/login';
       });
 
       form.addEventListener('submit', async (e) => {
@@ -137,7 +137,7 @@
         setLoading(true);
 
         try {
-          const resp = await fetch('/ml/api/auth/register', {
+          const resp = await fetch('api/auth/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
