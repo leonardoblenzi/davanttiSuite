@@ -1,56 +1,201 @@
+// ml/app.js
 "use strict";
 
 const express = require("express");
 const path = require("path");
+const cors = require("cors");
 const cookieParser = require("cookie-parser");
 
-// Middlewares do ML (suite)
-const ensureAuth = require("./middleware/ensureAuth");
-const ensurePermission = require("./middleware/ensurePermission");
+// Middlewares próprios
 const ensureAccount = require("./middleware/ensureAccount");
+const { authMiddleware } = require("./middleware/authMiddleware");
+const { ensureAuth } = require("./middleware/ensureAuth");
 
-// ✅ ML token middleware (depende do ensureAccount)
-const authMiddleware = require("./middleware/authMiddleware");
+// ⚠️ cuidado: no teu log apareceu "app.use() requires a middleware function"
+// então eu vou carregar ensurePermission de forma segura.
+let ensurePermission = null;
+try {
+  // Pode ser que o arquivo exporte { ensurePermission } ao invés do default.
+  const mod = require("./middleware/ensurePermission");
+  ensurePermission = typeof mod === "function" ? mod : mod?.ensurePermission;
+} catch (_e) {
+  ensurePermission = null;
+}
 
-// Exporta função que devolve app (pra ser montado em /ml)
-module.exports = function createMlApp(options = {}) {
+// Bootstrap MASTER (idempotente)
+const { ensureMasterUser } = require("./services/bootstrapMaster");
+
+module.exports = function createMlApp() {
   const app = express();
 
-  // ==========================================
-  // BASIC MIDDLEWARES
-  // ==========================================
-  app.use(express.json({ limit: "2mb" }));
+  app.set("trust proxy", 1);
+  app.set("etag", false);
+
+  // ========================
+  // Middlewares básicos
+  // ========================
+  app.use(express.json({ limit: "10mb" }));
   app.use(express.urlencoded({ extended: true }));
+
+  app.use(cors());
   app.use(cookieParser());
 
-  // views
-  app.set("views", path.join(__dirname, "views"));
-  app.set("view engine", "ejs");
-
-  // static
+  // ✅ Static (quando montado na suite em /ml vira /ml/css, /ml/js...)
   app.use(express.static(path.join(__dirname, "public")));
 
-  // ==========================================
-  // AUTH (suite login)
-  // ==========================================
-  // Nota: quem chama (suite/server.js) já monta isso em /ml,
-  // então aqui as rotas são relativas ao "ml app".
+  // ✅ FIX favicon
+  app.get("/favicon.ico", (_req, res) => res.status(204).end());
+
+  console.log("🔍 [ML] Carregando módulos...");
+
+  // ==================================================
+  // ✅ Bootstrap do MASTER (idempotente)
+  // ==================================================
+  ensureMasterUser()
+    .then(() => console.log("✅ [ML] Bootstrap MASTER ok"))
+    .catch((e) =>
+      console.error("❌ [ML] Bootstrap MASTER falhou:", e?.message || e),
+    );
+
+  // ==================================================
+  // Token provider (Curva ABC)
+  // ==================================================
   try {
-    app.use(ensureAuth);
-  } catch (e) {
-    console.warn("⚠️ [ML] ensureAuth não aplicado:", e?.message || e);
+    const { getAccessTokenForAccount } = require("./services/ml-auth");
+    app.set("getAccessTokenForAccount", getAccessTokenForAccount);
+    console.log("✅ [ML] Token Adapter injetado");
+  } catch (_err) {
+    console.warn("⚠️ [ML] Não foi possível injetar ml-auth.");
   }
 
-  // ✅ Permissões (admin etc.)
-  try {
-    app.use(ensurePermission);
-  } catch (e) {
-    console.warn("⚠️ [ML] ensurePermission não aplicado:", e?.message || e);
+  // ==================================================
+  // noCache
+  // ==================================================
+  function noCache(_req, res, next) {
+    res.set({
+      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      Pragma: "no-cache",
+      Expires: "0",
+      "Surrogate-Control": "no-store",
+    });
+    next();
   }
 
-  // ✅ Ordem correta:
-  // 1) ensureAccount injeta res.locals.mlCreds (conta + tokens)
-  // 2) authMiddleware usa isso pra renovar/injetar req.ml.accessToken
+  // ==================================================
+  // ✅ Auth Routes públicas
+  // (mantém em /api/auth, porque na SUITE /ml/api/auth chega aqui como /api/auth)
+  // ==================================================
+  try {
+    if (!(process.env.ML_JWT_SECRET || process.env.JWT_SECRET)) {
+      console.warn("⚠️ [ML] JWT_SECRET não definido.");
+    }
+    const authRoutes = require("./routes/authRoutes");
+    app.use("/api/auth", authRoutes);
+    console.log("✅ [ML] AuthRoutes carregado");
+  } catch (e) {
+    console.error("❌ [ML] Erro ao carregar AuthRoutes:", e.message);
+  }
+
+  // ==================================================
+  // ✅ Auth Gate (tudo protegido)
+  // ==================================================
+  function isPublicPath(req) {
+    const p = req.path || "";
+
+    // páginas públicas
+    if (p === "/login") return true;
+    if (p === "/cadastro") return true;
+    if (p === "/selecao-plataforma") return true;
+
+    // ✅ estas páginas precisam ser acessíveis após login, mas sem “conta selecionada”
+    // (quem controla isso é ensureAccount, que já tem OPEN_PREFIXES)
+    if (p === "/select-conta") return true;
+    if (p === "/vincular-conta") return true;
+
+    // auth
+    if (p.startsWith("/api/auth")) return true;
+
+    // healthchecks
+    if (p === "/healthz") return true;
+    if (p.startsWith("/api/system/health")) return true;
+    if (p.startsWith("/api/system/stats")) return true;
+    if (p.startsWith("/api/health")) return true;
+
+    // assets
+    if (
+      p.startsWith("/css/") ||
+      p.startsWith("/js/") ||
+      p.startsWith("/img/") ||
+      p.startsWith("/fonts/") ||
+      p.startsWith("/vendor/")
+    ) {
+      return true;
+    }
+
+    if (p === "/favicon.ico") return true;
+    return false;
+  }
+
+  function authGate(req, res, next) {
+    if (isPublicPath(req)) return next();
+    return ensureAuth(req, res, next);
+  }
+
+  app.use(authGate);
+  console.log("✅ [ML] AuthGate aplicado");
+
+  // ==================================================
+  // ✅ Rotas de páginas (HTML)
+  // ==================================================
+  app.get("/", noCache, (req, res) => {
+    const base = req.baseUrl || ""; // ✅ funciona quando montado em /ml
+    if (req.cookies?.auth_token) {
+      return ensureAuth(req, res, () => res.redirect(base + "/dashboard"));
+    }
+    return res.redirect(base + "/selecao-plataforma");
+  });
+
+  app.get("/healthz", (_req, res) => {
+    res.set("Cache-Control", "no-store");
+    return res.status(200).json({ ok: true });
+  });
+
+  app.get("/selecao-plataforma", noCache, (_req, res) => {
+    return res.sendFile(
+      path.join(__dirname, "views", "selecao-plataforma.html"),
+    );
+  });
+
+  app.get("/login", noCache, (_req, res) => {
+    return res.sendFile(path.join(__dirname, "views", "login.html"));
+  });
+
+  app.get("/cadastro", noCache, (_req, res) => {
+    return res.sendFile(path.join(__dirname, "views", "cadastro.html"));
+  });
+
+  // ✅ ESSAS DUAS ESTAVAM FALTANDO (por isso dava 404)
+  app.get("/select-conta", noCache, (_req, res) => {
+    return res.sendFile(path.join(__dirname, "views", "select-conta.html"));
+  });
+
+  app.get("/vincular-conta", noCache, (_req, res) => {
+    return res.sendFile(path.join(__dirname, "views", "vincular-conta.html"));
+  });
+
+  app.get("/nao-autorizado", noCache, (_req, res) => {
+    return res
+      .status(403)
+      .sendFile(path.join(__dirname, "views", "nao-autorizado.html"));
+  });
+
+  // ==========================================
+  // ✅ Middlewares “do ML” (depois do authGate)
+  // ==========================================
+
+  // ✅ FIX (SÓ ISSO): ensureAccount ANTES do authMiddleware
+  // - ensureAccount injeta res.locals.mlCreds (conta + tokens)
+  // - authMiddleware usa isso pra montar req.ml.accessToken
   try {
     app.use(ensureAccount);
   } catch (e) {
@@ -63,15 +208,52 @@ module.exports = function createMlApp(options = {}) {
     console.warn("⚠️ [ML] authMiddleware não aplicado:", e?.message || e);
   }
 
+  // ✅ aplica ACL só se for middleware válido
+  if (typeof ensurePermission === "function") {
+    app.use(ensurePermission);
+  } else {
+    console.warn("⚠️ [ML] ensurePermission não aplicado: export inválido");
+  }
+
   // ==========================================
-  // ROUTES
+  // INICIALIZAR FILAS
   // ==========================================
-  function safeUse(label, routePath, mountPath = null) {
+  let queueService;
+  try {
+    queueService = require("./services/queueService");
+    console.log("✅ [ML] QueueService carregado");
+    queueService
+      .iniciarProcessamento()
+      .then(() => console.log("🚀 [ML] Filas iniciadas"))
+      .catch((error) =>
+        console.error("❌ [ML] Erro ao iniciar filas:", error.message),
+      );
+  } catch (error) {
+    console.error("❌ [ML] Erro ao carregar QueueService:", error.message);
+    console.warn("⚠️ [ML] Sem filas");
+  }
+
+  app.locals.queueService = queueService || null;
+
+  // ==========================================
+  // ✅ Logout (mantém)
+  // ==========================================
+  app.post("/api/ml/logout", noCache, (_req, res) => {
+    res.clearCookie("auth_token", { path: "/" });
+    res.clearCookie("ml_account", { path: "/" });
+    res.clearCookie("meli_conta_id", { path: "/" });
+    return res.json({ ok: true });
+  });
+
+  // ==========================================
+  // ✅ ROTAS (plugar módulos)
+  // ==========================================
+  function safeUse(label, modPath, mountPath = null) {
     try {
-      const router = require(routePath);
-      if (mountPath) app.use(mountPath, router);
-      else app.use(router);
-      console.log(`✅ [ML] Rotas carregadas: ${label}`);
+      const r = require(modPath);
+      if (mountPath) app.use(mountPath, r);
+      else app.use(r);
+      console.log(`✅ [ML] ${label} carregado`);
     } catch (e) {
       console.warn(`⚠️ [ML] Falhou ao carregar ${label}:`, e.message);
     }
@@ -79,6 +261,9 @@ module.exports = function createMlApp(options = {}) {
 
   // páginas/HTML do dashboard etc (se existir)
   safeUse("HtmlRoutes", "./routes/htmlRoutes");
+
+  // ✅ Admin (HTML) — serve /admin/* (master-only)
+  safeUse("adminHtmlRoutes", "./routes/adminHtmlRoutes");
 
   // ✅ IMPORTANTÍSSIMO: routers relativos devem ser montados no prefixo correto
   safeUse("accountRoutes", "./routes/accountRoutes", "/api/account");
@@ -107,15 +292,32 @@ module.exports = function createMlApp(options = {}) {
   );
   safeUse("analytics-abc-Routes", "./routes/analytics-abc-Routes");
 
-  // Admin
-  safeUse("adminUsuariosRoutes", "./routes/adminUsuariosRoutes");
-  safeUse("adminEmpresasRoutes", "./routes/adminEmpresasRoutes");
-  safeUse("adminVinculosRoutes", "./routes/adminVinculosRoutes");
-  safeUse("adminMeliContasRoutes", "./routes/adminMeliContasRoutes");
-  safeUse("adminMeliTokensRoutes", "./routes/adminMeliTokensRoutes");
-  safeUse("adminOAuthStatesRoutes", "./routes/adminOAuthStatesRoutes");
-  safeUse("adminMigracoesRoutes", "./routes/adminMigracoesRoutes");
-  safeUse("adminBackupRoutes", "./routes/adminBackupRoutes");
+  // ✅ Admin APIs (MASTER) — todas em /api/admin/*
+  // (os arquivos já definem subpaths como /usuarios, /empresas, etc.)
+  safeUse("adminUsuariosRoutes", "./routes/adminUsuariosRoutes", "/api/admin");
+  safeUse("adminEmpresasRoutes", "./routes/adminEmpresasRoutes", "/api/admin");
+  safeUse("adminVinculosRoutes", "./routes/adminVinculosRoutes", "/api/admin");
+  safeUse(
+    "adminMeliContasRoutes",
+    "./routes/adminMeliContasRoutes",
+    "/api/admin",
+  );
+  safeUse(
+    "adminMeliTokensRoutes",
+    "./routes/adminMeliTokensRoutes",
+    "/api/admin",
+  );
+  safeUse(
+    "adminOAuthStatesRoutes",
+    "./routes/adminOAuthStatesRoutes",
+    "/api/admin",
+  );
+  safeUse(
+    "adminMigracoesRoutes",
+    "./routes/adminMigracoesRoutes",
+    "/api/admin",
+  );
+  safeUse("adminBackupRoutes", "./routes/adminBackupRoutes", "/api/admin");
 
   // ==========================================
   // ERRORS (mantém)
