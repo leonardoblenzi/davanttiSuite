@@ -132,7 +132,6 @@ async function carregarContaAtual() {
 }
 
 async function trocarConta() {
-  // usa o endpoint que você já tem no projeto (oauth)
   try {
     await fetch(U("/api/meli/limpar-selecao"), {
       method: "POST",
@@ -154,14 +153,10 @@ function fecharModalStatus() {
 
 async function verificarToken(updateModal = false) {
   try {
-    // ✅ FIX: usar U() pra funcionar em /ml
-    const response = await fetch(U("/verificar-token"), {
-      method: "GET",
+    // ✅ sempre usa base /ml (suite) e o prefixo /api/tokens
+    const response = await fetch(U("/api/tokens/verificar-token"), {
       credentials: "include",
-      cache: "no-store",
-      headers: { accept: "application/json" },
     });
-
     const data = await response.json().catch(() => null);
 
     if (data?.success) {
@@ -189,12 +184,10 @@ async function verificarToken(updateModal = false) {
 
 async function renovarToken(updateModal = false) {
   try {
-    // ✅ FIX: usar U() pra funcionar em /ml
-    const response = await fetch(U("/renovar-token-automatico"), {
+    // ✅ sempre usa base /ml (suite) e o prefixo /api/tokens
+    const response = await fetch(U("/api/tokens/renovar-token-automatico"), {
       method: "POST",
       credentials: "include",
-      cache: "no-store",
-      headers: { accept: "application/json" },
     });
 
     const data = await response.json().catch(() => null);
@@ -246,9 +239,6 @@ function renderNoSparkline() {
   if (empty) empty.style.display = "block";
 }
 
-// ==================================================
-// ✅ Sparkline (Ritmo do mês)
-// ==================================================
 function renderSparkline(dailyOrders, dayOfMonth, daysInMonth) {
   const wrap = document.getElementById("dash-sparkline");
   const empty = document.getElementById("dash-spark-empty");
@@ -268,7 +258,6 @@ function renderSparkline(dailyOrders, dayOfMonth, daysInMonth) {
   for (let i = 0; i < arr.length; i++) {
     const d = arr[i] || {};
     const value = Number(d.revenue || 0);
-
     const pct = Math.max(0.04, value / max);
 
     const bar = document.createElement("div");
@@ -280,7 +269,7 @@ function renderSparkline(dailyOrders, dayOfMonth, daysInMonth) {
 
     bar.style.height = Math.round(pct * 100) + "%";
 
-    const fmtBRL2 =
+    const fmtBRL =
       window.fmtBRL ||
       ((v) =>
         new Intl.NumberFormat("pt-BR", {
@@ -288,13 +277,13 @@ function renderSparkline(dailyOrders, dayOfMonth, daysInMonth) {
           currency: "BRL",
         }).format(Number(v || 0)));
 
-    const fmtNum2 =
+    const fmtNum =
       window.fmtNum ||
       ((v) => new Intl.NumberFormat("pt-BR").format(Number(v || 0)));
 
-    bar.title = `${d.date || ""}\nVendas: ${fmtBRL2(value)}\nPedidos: ${fmtNum2(
+    bar.title = `${d.date || ""}\nVendas: ${fmtBRL(value)}\nPedidos: ${fmtNum(
       d.orders || 0,
-    )}\nUnidades: ${fmtNum2(d.units || 0)}`;
+    )}\nUnidades: ${fmtNum(d.units || 0)}`;
 
     wrap.appendChild(bar);
   }
@@ -314,20 +303,15 @@ function renderSparkline(dailyOrders, dayOfMonth, daysInMonth) {
     )}% do mês)`;
 }
 
-// ✅ se algum outro trecho chamar via window, garante
 window.renderSparkline = renderSparkline;
 
 async function carregarDashboard() {
   hideDashAlert();
 
   try {
-    // ✅ FIX: mandar credentials/include + accept json
     const r = await fetch(U("/api/dashboard/summary?tz=America%2FSao_Paulo"), {
       cache: "no-store",
-      credentials: "include",
-      headers: { accept: "application/json" },
     });
-
     const txt = await r.text().catch(() => "");
     const data = txt ? JSON.parse(txt) : null;
 
@@ -373,9 +357,7 @@ async function carregarDashboard() {
       period.days_in_month || 30,
     );
 
-    // ==================================================
-    // ✅ ADS (atribuído)
-    // ==================================================
+    // ADS (atribuído)
     try {
       const firstDay = `${monthKey}-01`;
       const today =
@@ -387,13 +369,10 @@ async function carregarDashboard() {
           firstDay,
         )}&date_to=${encodeURIComponent(today)}`,
       );
-
       const ra = await fetch(urlAds, {
-        credentials: "include",
+        credentials: "same-origin",
         cache: "no-store",
-        headers: { accept: "application/json" },
       });
-
       const ta = await ra.text().catch(() => "");
       const da = ta ? JSON.parse(ta) : {};
 
@@ -425,9 +404,6 @@ async function carregarDashboard() {
       "error",
       "❌ Não foi possível carregar o dashboard: " + (e.message || String(e)),
     );
-
-    // se quiser, mostra o vazio do gráfico
-    renderNoSparkline();
   }
 }
 
@@ -440,33 +416,27 @@ document.addEventListener("DOMContentLoaded", async () => {
     openTabByHash();
     if (!location.hash) history.replaceState(null, "", "#dashboard");
 
-    // conta
     carregarContaAtual();
     safeBind($("account-switch"), "click", trocarConta);
 
-    // status
     safeBind($("btn-status"), "click", async () => {
       abrirModalStatus();
       await verificarToken(true);
     });
 
-    // refresh
     safeBind($("dash-refresh"), "click", carregarDashboard);
 
-    // fechar modal clicando fora
     window.addEventListener("click", (event) => {
       const m = $("modal-status");
       if (event.target === m) fecharModalStatus();
     });
 
-    // carregamento inicial
     await carregarDashboard();
   } catch (err) {
     console.error("Erro na inicialização do dashboard:", err);
   }
 });
 
-// expor pro onclick do HTML
 window.abrirModalStatus = abrirModalStatus;
 window.fecharModalStatus = fecharModalStatus;
 window.verificarToken = verificarToken;
