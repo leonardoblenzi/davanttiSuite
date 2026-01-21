@@ -16,8 +16,42 @@
 (() => {
   const $ = (sel) => document.querySelector(sel);
 
-  // ✅ Helper de URL (suite /ml vs standalone /)
-  const U = (p) => (typeof window.mlUrl === "function" ? window.mlUrl(p) : p);
+  // ============================================================
+  // ✅ Helper de URL (suite /ml vs standalone /) — ROBUSTO
+  // - Se existir window.mlUrl, usa.
+  // - Se não existir, detecta automaticamente se está em /ml (ou /x/ml)
+  //   e prefixa as rotas corretamente.
+  // ============================================================
+  function detectBase() {
+    const p = String(window.location?.pathname || "/");
+
+    // caso padrão: /ml/...
+    if (p === "/ml" || p.startsWith("/ml/")) return "/ml";
+
+    // caso suite: /alguma-coisa/ml/...
+    const idx = p.indexOf("/ml/");
+    if (idx >= 0) return p.slice(0, idx + 3); // inclui "/ml"
+
+    return "";
+  }
+
+  const U = (path) => {
+    if (typeof window.mlUrl === "function") return window.mlUrl(path);
+
+    const base = detectBase();
+
+    if (!path) return base || "/";
+    if (/^https?:\/\//i.test(path)) return path;
+
+    const p = path.startsWith("/") ? path : `/${path}`;
+
+    if (!base) return p;
+
+    // evita duplicar base
+    if (p === base || p.startsWith(base + "/")) return p;
+
+    return base + p;
+  };
 
   const elList = $("#list");
   const elAlert = $("#alert");
@@ -584,9 +618,8 @@
     }
   }
 
-  // ✅ NOVO: valida seleção sem depender de /api/meli/current (que pode exigir token ML)
+  // ✅ valida seleção sem depender de /api/meli/current
   async function validarSelecaoSemTokenML(expectedId) {
-    // /api/meli/contas costuma estar em SKIP no authMiddleware => sempre JSON
     const { r, data } = await fetchJson(U("/api/meli/contas"));
     if (!r.ok || !data || data.ok !== true) {
       throw new Error(`Não foi possível validar seleção (HTTP ${r.status}).`);
@@ -620,7 +653,7 @@
       state.currentId = meli_conta_id;
       render();
 
-      // ✅ Valida via /api/meli/contas (não depende de token ML)
+      // ✅ Valida via /api/meli/contas
       try {
         await validarSelecaoSemTokenML(meli_conta_id);
       } catch (e) {
