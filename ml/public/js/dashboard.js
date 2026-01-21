@@ -52,7 +52,7 @@ function showDashAlert(type, text) {
   el.style.display = "block";
   el.classList.add(
     "dash-alert",
-    type === "error" ? "dash-alert--error" : "dash-alert--info"
+    type === "error" ? "dash-alert--error" : "dash-alert--info",
   );
   el.textContent = text;
 }
@@ -154,9 +154,14 @@ function fecharModalStatus() {
 
 async function verificarToken(updateModal = false) {
   try {
-    const response = await fetch("/verificar-token", {
+    // ✅ FIX: usar U() pra funcionar em /ml
+    const response = await fetch(U("/verificar-token"), {
+      method: "GET",
       credentials: "include",
+      cache: "no-store",
+      headers: { accept: "application/json" },
     });
+
     const data = await response.json().catch(() => null);
 
     if (data?.success) {
@@ -168,7 +173,7 @@ async function verificarToken(updateModal = false) {
         alert(
           `✅ ${data.message || "OK"}\nUser: ${data.nickname || "—"}\nToken: ${
             data.token_preview || "—"
-          }`
+          }`,
         );
       }
     } else {
@@ -184,9 +189,12 @@ async function verificarToken(updateModal = false) {
 
 async function renovarToken(updateModal = false) {
   try {
-    const response = await fetch("/renovar-token-automatico", {
+    // ✅ FIX: usar U() pra funcionar em /ml
+    const response = await fetch(U("/renovar-token-automatico"), {
       method: "POST",
       credentials: "include",
+      cache: "no-store",
+      headers: { accept: "application/json" },
     });
 
     const data = await response.json().catch(() => null);
@@ -196,14 +204,14 @@ async function renovarToken(updateModal = false) {
         setText("status-usuario", data.nickname || "—");
         setText(
           "status-token",
-          (data.access_token || "").substring(0, 20) + "..."
+          (data.access_token || "").substring(0, 20) + "...",
         );
         setText("status-msg", data.message || "Token renovado");
       } else {
         alert(
           `✅ ${data.message || "Token renovado"}\nUser: ${
             data.nickname || "—"
-          }\nNovo token: ${(data.access_token || "").substring(0, 20)}...`
+          }\nNovo token: ${(data.access_token || "").substring(0, 20)}...`,
         );
       }
     } else {
@@ -225,7 +233,6 @@ function setPill(id, text, kind /* ok | warn | neutral */) {
   if (!el) return;
   el.textContent = text;
 
-  // Se teu CSS não tiver classes específicas, isso é só no-op visual.
   el.classList.remove("pill-ok", "pill-warn", "pill-neutral");
   if (kind === "ok") el.classList.add("pill-ok");
   else if (kind === "warn") el.classList.add("pill-warn");
@@ -240,7 +247,7 @@ function renderNoSparkline() {
 }
 
 // ==================================================
-// ✅ Sparkline (Ritmo do mês) — GARANTE que existe no dashboard.js
+// ✅ Sparkline (Ritmo do mês)
 // ==================================================
 function renderSparkline(dailyOrders, dayOfMonth, daysInMonth) {
   const wrap = document.getElementById("dash-sparkline");
@@ -256,14 +263,12 @@ function renderSparkline(dailyOrders, dayOfMonth, daysInMonth) {
   }
   if (empty) empty.style.display = "none";
 
-  // ✅ pega máximo de revenue pra escala visual
   const max = Math.max(1, ...arr.map((x) => Number(x?.revenue || 0)));
 
   for (let i = 0; i < arr.length; i++) {
     const d = arr[i] || {};
     const value = Number(d.revenue || 0);
 
-    // mínimo visual pra não sumir
     const pct = Math.max(0.04, value / max);
 
     const bar = document.createElement("div");
@@ -275,8 +280,7 @@ function renderSparkline(dailyOrders, dayOfMonth, daysInMonth) {
 
     bar.style.height = Math.round(pct * 100) + "%";
 
-    // ✅ tooltips
-    const fmtBRL =
+    const fmtBRL2 =
       window.fmtBRL ||
       ((v) =>
         new Intl.NumberFormat("pt-BR", {
@@ -284,30 +288,29 @@ function renderSparkline(dailyOrders, dayOfMonth, daysInMonth) {
           currency: "BRL",
         }).format(Number(v || 0)));
 
-    const fmtNum =
+    const fmtNum2 =
       window.fmtNum ||
       ((v) => new Intl.NumberFormat("pt-BR").format(Number(v || 0)));
 
-    bar.title = `${d.date || ""}\nVendas: ${fmtBRL(value)}\nPedidos: ${fmtNum(
-      d.orders || 0
-    )}\nUnidades: ${fmtNum(d.units || 0)}`;
+    bar.title = `${d.date || ""}\nVendas: ${fmtBRL2(value)}\nPedidos: ${fmtNum2(
+      d.orders || 0,
+    )}\nUnidades: ${fmtNum2(d.units || 0)}`;
 
     wrap.appendChild(bar);
   }
 
-  // ✅ barra de progresso do mês
   const fill = document.getElementById("dash-progress-fill");
   const meta = document.getElementById("dash-progress-meta");
 
   const progress = Math.min(
     100,
-    Math.max(0, (Number(dayOfMonth || 1) / Number(daysInMonth || 30)) * 100)
+    Math.max(0, (Number(dayOfMonth || 1) / Number(daysInMonth || 30)) * 100),
   );
 
   if (fill) fill.style.width = progress.toFixed(2) + "%";
   if (meta)
     meta.textContent = `Dia ${dayOfMonth} de ${daysInMonth} (${progress.toFixed(
-      0
+      0,
     )}% do mês)`;
 }
 
@@ -318,10 +321,13 @@ async function carregarDashboard() {
   hideDashAlert();
 
   try {
-    // ✅ agora usa /summary (e /monthly-sales também funciona)
+    // ✅ FIX: mandar credentials/include + accept json
     const r = await fetch(U("/api/dashboard/summary?tz=America%2FSao_Paulo"), {
       cache: "no-store",
+      credentials: "include",
+      headers: { accept: "application/json" },
     });
+
     const txt = await r.text().catch(() => "");
     const data = txt ? JSON.parse(txt) : null;
 
@@ -341,11 +347,11 @@ async function carregarDashboard() {
     setText("dash-period", monthKey);
     setText(
       "dash-day",
-      `${period.day_of_month || "—"}/${period.days_in_month || "—"}`
+      `${period.day_of_month || "—"}/${period.days_in_month || "—"}`,
     );
 
     const totalAll = Number(
-      breakdown.total_all || totals.revenue_month_to_date || 0
+      breakdown.total_all || totals.revenue_month_to_date || 0,
     );
 
     setText("dash-total", fmtBRL(totalAll));
@@ -364,11 +370,11 @@ async function carregarDashboard() {
     renderSparkline(
       series.daily_orders || [],
       period.day_of_month || 1,
-      period.days_in_month || 30
+      period.days_in_month || 30,
     );
 
     // ==================================================
-    // ✅ ADS (atribuído) — reaproveita seu endpoint da Publicidade
+    // ✅ ADS (atribuído)
     // ==================================================
     try {
       const firstDay = `${monthKey}-01`;
@@ -378,13 +384,16 @@ async function carregarDashboard() {
 
       const urlAds = U(
         `/api/publicidade/product-ads/metrics/daily?date_from=${encodeURIComponent(
-          firstDay
-        )}&date_to=${encodeURIComponent(today)}`
+          firstDay,
+        )}&date_to=${encodeURIComponent(today)}`,
       );
+
       const ra = await fetch(urlAds, {
-        credentials: "same-origin",
+        credentials: "include",
         cache: "no-store",
+        headers: { accept: "application/json" },
       });
+
       const ta = await ra.text().catch(() => "");
       const da = ta ? JSON.parse(ta) : {};
 
@@ -396,7 +405,6 @@ async function carregarDashboard() {
       let adsAmount = 0;
 
       for (const row of arr) {
-        // prioriza direct_amount; se não existir, usa total_amount
         adsAmount += Number(row.direct_amount ?? row.total_amount ?? 0);
       }
 
@@ -406,7 +414,6 @@ async function carregarDashboard() {
       const organic = Math.max(0, totalAll - adsAmount);
       setText("dash-organic", fmtBRL(organic));
     } catch (adsErr) {
-      // se Ads falhar, não derruba o dashboard
       setText("dash-ads", fmtBRL(0));
       setText("dash-ads-pill", "indisp.");
       setText("dash-organic", fmtBRL(totalAll));
@@ -416,8 +423,11 @@ async function carregarDashboard() {
     console.error("carregarDashboard:", e);
     showDashAlert(
       "error",
-      "❌ Não foi possível carregar o dashboard: " + (e.message || String(e))
+      "❌ Não foi possível carregar o dashboard: " + (e.message || String(e)),
     );
+
+    // se quiser, mostra o vazio do gráfico
+    renderNoSparkline();
   }
 }
 

@@ -75,8 +75,8 @@
       type === "err"
         ? "rgba(255,90,90,.12)"
         : type === "ok"
-        ? "rgba(46,204,113,.12)"
-        : "rgba(255,230,0,.12)";
+          ? "rgba(46,204,113,.12)"
+          : "rgba(255,230,0,.12)";
     elAlert.style.color =
       type === "err" ? "#ff5a5a" : type === "ok" ? "#2ecc71" : "#ffe600";
   }
@@ -116,7 +116,7 @@
           "&": "&amp;",
           '"': "&quot;",
           "'": "&#39;",
-        }[c])
+        })[c],
     );
   }
 
@@ -129,8 +129,7 @@
   }
 
   // ===========================
-  // Parse de data robusto (corrige "expirado" falso)
-  // - aceita ISO com timezone, timestamp, e formato postgres "YYYY-MM-DD HH:mm:ss"
+  // Parse de data robusto
   // ===========================
   function parseDateSmart(v) {
     if (!v) return null;
@@ -157,11 +156,9 @@
       return Number.isNaN(d.getTime()) ? null : d;
     }
 
-    // Postgres comum: "YYYY-MM-DD HH:mm:ss" (sem timezone)
-    // Interpreta como horário local do browser (consistente) e converte corretamente.
-    // Se seu backend mandar esse formato, isso evita "Invalid Date"/timezone bug.
+    // Postgres comum: "YYYY-MM-DD HH:mm:ss"
     const m = s.match(
-      /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/
+      /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/,
     );
     if (m) {
       const year = Number(m[1]);
@@ -365,8 +362,14 @@
     );
   }
 
-  function calcExpiryMinutes(accessExpiresAt) {
+  // ✅ usa expires_in_min do backend quando existir (mais confiável)
+  function calcExpiryMinutesFromConta(c) {
+    const rawMin = Number(c?.expires_in_min);
+    if (Number.isFinite(rawMin)) return rawMin;
+
+    const accessExpiresAt = c?.access_expires_at;
     if (!accessExpiresAt) return null;
+
     const d = parseDateSmart(accessExpiresAt);
     if (!d) return null;
     return Math.floor((d.getTime() - Date.now()) / 60000);
@@ -379,7 +382,7 @@
       ? `<span style="${badgeStyle("ok")}">✅ Tokens OK</span>`
       : `<span style="${badgeStyle("warn")}">⛔ Sem tokens</span>`;
 
-    const mins = calcExpiryMinutes(c?.access_expires_at);
+    const mins = calcExpiryMinutesFromConta(c);
 
     // Melhor UX: quando não tem tokens, não mostra "Expirado"
     if (!hasTokens) {
@@ -397,11 +400,11 @@
         expBadge = `<span style="${badgeStyle("err")}">⏳ Expirado</span>`;
       else if (mins <= 10)
         expBadge = `<span style="${badgeStyle(
-          "warn"
+          "warn",
         )}">⚠️ Expira em ${mins} min</span>`;
       else
         expBadge = `<span style="${badgeStyle(
-          "muted"
+          "muted",
         )}">⏳ Expira em ${mins} min</span>`;
     }
 
@@ -430,7 +433,7 @@
         renderEmpty("Nenhuma conta encontrada com os filtros atuais.");
       } else {
         renderEmpty(
-          "Nenhuma conta do Mercado Livre vinculada ainda.\nClique em Vincular Conta para conectar a primeira."
+          "Nenhuma conta do Mercado Livre vinculada ainda.\nClique em Vincular Conta para conectar a primeira.",
         );
       }
       if (elCurrent) elCurrent.textContent = "Não selecionada";
@@ -594,7 +597,7 @@
     }
     if (Number(cur) !== Number(expectedId)) {
       throw new Error(
-        `Conta atual (${cur}) diferente da selecionada (${expectedId}).`
+        `Conta atual (${cur}) diferente da selecionada (${expectedId}).`,
       );
     }
     return true;
@@ -623,7 +626,7 @@
       } catch (e) {
         showAlert(
           `Conta selecionada, mas não consegui validar sessão: ${e.message}`,
-          "warn"
+          "warn",
         );
       }
 

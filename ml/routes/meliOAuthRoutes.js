@@ -23,12 +23,12 @@ if (!ML_APP_ID) {
 }
 if (!ML_CLIENT_SECRET) {
   console.warn(
-    "⚠️ ML_CLIENT_SECRET não definido (ML_CLIENT_SECRET / CLIENT_SECRET)."
+    "⚠️ ML_CLIENT_SECRET não definido (ML_CLIENT_SECRET / CLIENT_SECRET).",
   );
 }
 if (!ML_REDIRECT_URI) {
   console.warn(
-    "⚠️ ML_REDIRECT_URI não definido (ML_REDIRECT_URI / REDIRECT_URI)."
+    "⚠️ ML_REDIRECT_URI não definido (ML_REDIRECT_URI / REDIRECT_URI).",
   );
 }
 
@@ -43,15 +43,42 @@ const COOKIE_MELI_CONTA = "meli_conta_id";
 const isProd =
   String(process.env.NODE_ENV || "").toLowerCase() === "production";
 
+/**
+ * 📌 IMPORTANTÍSSIMO:
+ * Quando o ML roda montado em /ml (suite), se você setar cookie com Path "/",
+ * ele até funciona… mas quando existirem cookies antigos com Path mais específico
+ * (ex.: "/ml/api/meli"), o browser pode mandar o "errado" em algumas rotas.
+ *
+ * Aqui garantimos:
+ * - em suite: Path "/ml"
+ * - standalone/local: Path "/"
+ */
+function getCookieRootPath(req) {
+  const u = String(req?.originalUrl || "");
+  return u.startsWith("/ml/") || u === "/ml" ? "/ml" : "/";
+}
+
 // Em produção (Render), você está com trust proxy = 1, então secure funciona
-function cookieOptions() {
+function cookieOptions(req) {
   return {
     httpOnly: true,
     sameSite: "lax",
     secure: isProd,
     maxAge: 30 * 24 * 3600 * 1000, // 30 dias
-    path: "/",
+    path: getCookieRootPath(req),
   };
+}
+
+/**
+ * Limpa cookie em múltiplos paths para matar resíduos antigos
+ * (principal causa do loop: cookie setado com Path específico não chega no /ml/dashboard)
+ */
+function clearContaCookie(res) {
+  ["/", "/ml", "/ml/api", "/ml/api/meli"].forEach((p) => {
+    try {
+      res.clearCookie(COOKIE_MELI_CONTA, { path: p });
+    } catch (_) {}
+  });
 }
 
 // ===============================
@@ -136,7 +163,7 @@ async function getEmpresaDoUsuario(client, usuarioId) {
       where eu.usuario_id = $1
       order by case eu.papel when 'owner' then 1 when 'admin' then 2 else 3 end
       limit 1`,
-    [usuarioId]
+    [usuarioId],
   );
   return r.rows[0] || null;
 }
@@ -167,19 +194,6 @@ async function tryGetMlNickname(accessToken, meliUserId) {
 // ✅ GET /api/meli/contas
 // - Usuário normal/admin: lista contas da empresa do usuário
 // - Master: lista TODAS as contas (todas empresas)
-// Suporta:
-//   ?q=busca (empresa/apelido/meli_user_id)   (empresa só master)
-//   ?active_only=1 (somente status='ativa')
-//   ?page=1..n
-//   ?limit=6..50
-//
-// Retorna também:
-// - has_tokens (true/false)
-// - access_expires_at
-// - expires_in_min (✅ calculado no banco)
-// - empresa_nome (apenas master)
-// - paginação (total/total_pages)
-// - current_meli_conta_id (cookie)
 // ===============================
 router.get("/contas", async (req, res) => {
   try {
@@ -192,7 +206,7 @@ router.get("/contas", async (req, res) => {
 
     const q = String(req.query?.q || "").trim();
     const onlyActive = parseBoolLike(
-      req.query?.active_only || req.query?.onlyActive
+      req.query?.active_only || req.query?.onlyActive,
     );
 
     const page = clampInt(req.query?.page, 1, 999999, 1);
@@ -200,7 +214,7 @@ router.get("/contas", async (req, res) => {
       req.query?.limit || req.query?.pageSize,
       6,
       50,
-      12
+      12,
     );
     const offset = (page - 1) * pageSize;
 
@@ -309,13 +323,13 @@ router.get("/contas", async (req, res) => {
              from meli_contas
             where id = $1 and empresa_id = $2
             limit 1`,
-          [currentId, emp.empresa_id]
+          [currentId, emp.empresa_id],
         );
         return !!r.rows[0];
       });
 
       if (!okCurrent) {
-        res.clearCookie(COOKIE_MELI_CONTA, { path: "/" });
+        clearContaCookie(res);
         currentId = null;
       }
     }
@@ -344,8 +358,6 @@ router.get("/contas", async (req, res) => {
 // ===============================
 // POST /api/meli/selecionar
 // body: { meli_conta_id }
-// - Usuário normal/admin: só seleciona conta da própria empresa
-// - Master: pode selecionar qualquer conta existente
 // ===============================
 router.post(
   "/selecionar",
@@ -369,7 +381,7 @@ router.post(
         if (master) {
           const r = await client.query(
             `select 1 from meli_contas where id = $1 limit 1`,
-            [meli_conta_id]
+            [meli_conta_id],
           );
           return !!r.rows[0];
         }
@@ -383,7 +395,7 @@ router.post(
            from meli_contas c
           where c.id = $1 and c.empresa_id = $2
           limit 1`,
-          [meli_conta_id, emp.empresa_id]
+          [meli_conta_id, emp.empresa_id],
         );
         return !!r.rows[0];
       });
@@ -401,11 +413,14 @@ router.post(
       try {
         await db.query(
           `update meli_contas set ultimo_uso_em = now() where id = $1`,
-          [meli_conta_id]
+          [meli_conta_id],
         );
       } catch (_) {}
 
-      res.cookie(COOKIE_MELI_CONTA, String(meli_conta_id), cookieOptions());
+      // ✅ limpa cookies antigos (paths antigos) e seta no path raiz correto
+      clearContaCookie(res);
+      res.cookie(COOKIE_MELI_CONTA, String(meli_conta_id), cookieOptions(req));
+
       return res.json({ ok: true, meli_conta_id });
     } catch (e) {
       console.error("POST /api/meli/selecionar erro:", e?.message || e);
@@ -413,15 +428,14 @@ router.post(
         .status(500)
         .json({ ok: false, error: "Erro ao selecionar conta." });
     }
-  }
+  },
 );
 
 // ===============================
 // POST /api/meli/limpar-selecao
-// Limpa cookie meli_conta_id
 // ===============================
 router.post("/limpar-selecao", async (_req, res) => {
-  res.clearCookie(COOKIE_MELI_CONTA, { path: "/" });
+  clearContaCookie(res);
   return res.json({ ok: true });
 });
 
@@ -450,7 +464,7 @@ router.post(
       // ✅ Você disse: master NÃO escolhe empresa manualmente
       // então sempre vincula na empresa do usuário logado (via empresa_usuarios).
       const return_to = sanitizeReturnTo(
-        req.body?.return_to || "/vincular-conta"
+        req.body?.return_to || "/vincular-conta",
       );
 
       const state = randomState();
@@ -468,7 +482,7 @@ router.post(
 
           // higiene: limpa states expirados
           await client.query(
-            `delete from oauth_states where expira_em < now()`
+            `delete from oauth_states where expira_em < now()`,
           );
 
           await client.query(
@@ -481,7 +495,7 @@ router.post(
               code_verifier,
               return_to,
               expiraEm.toISOString(),
-            ]
+            ],
           );
 
           await client.query("commit");
@@ -508,7 +522,7 @@ router.post(
         .status(500)
         .json({ ok: false, error: "Erro ao iniciar vinculação." });
     }
-  }
+  },
 );
 
 // ===============================
@@ -527,7 +541,7 @@ router.get("/oauth/callback", async (req, res) => {
       return res
         .status(500)
         .send(
-          "Config do Mercado Livre incompleta (APP_ID/SECRET/REDIRECT_URI)."
+          "Config do Mercado Livre incompleta (APP_ID/SECRET/REDIRECT_URI).",
         );
     }
 
@@ -540,7 +554,7 @@ router.get("/oauth/callback", async (req, res) => {
              from oauth_states
             where state = $1
             limit 1`,
-          [state]
+          [state],
         );
 
         const row = st.rows[0];
@@ -590,7 +604,7 @@ router.get("/oauth/callback", async (req, res) => {
         // expiração absoluta
         const expiresInSec = Number(data.expires_in || 0);
         const access_expires_at = new Date(
-          Date.now() + Math.max(60, expiresInSec) * 1000
+          Date.now() + Math.max(60, expiresInSec) * 1000,
         );
 
         // ✅ apelido default SEMPRE (mais limpo) + tenta nickname do ML por cima
@@ -606,7 +620,7 @@ router.get("/oauth/callback", async (req, res) => {
              from meli_contas
             where empresa_id = $1 and meli_user_id = $2
             limit 1`,
-          [row.empresa_id, meli_user_id]
+          [row.empresa_id, meli_user_id],
         );
 
         if (existing.rows[0]) {
@@ -618,14 +632,14 @@ router.get("/oauth/callback", async (req, res) => {
                     atualizado_em = now(),
                     ultimo_uso_em = now()
               where id = $1`,
-            [contaId]
+            [contaId],
           );
         } else {
           const ins = await client.query(
             `insert into meli_contas (empresa_id, meli_user_id, apelido, site_id, status)
              values ($1, $2, $3, 'MLB', 'ativa')
              returning id`,
-            [row.empresa_id, meli_user_id, apelido]
+            [row.empresa_id, meli_user_id, apelido],
           );
 
           contaId = ins.rows[0].id;
@@ -649,7 +663,7 @@ router.get("/oauth/callback", async (req, res) => {
             access_expires_at.toISOString(),
             refresh_token,
             scope,
-          ]
+          ],
         );
 
         // state é 1x uso
@@ -670,10 +684,15 @@ router.get("/oauth/callback", async (req, res) => {
       }
     });
 
-    // ✅ já seleciona a conta recém vinculada
+    // ✅ já seleciona a conta recém vinculada (com Path correto)
     try {
       if (outcome?.contaId) {
-        res.cookie(COOKIE_MELI_CONTA, String(outcome.contaId), cookieOptions());
+        clearContaCookie(res);
+        res.cookie(
+          COOKIE_MELI_CONTA,
+          String(outcome.contaId),
+          cookieOptions(req),
+        );
       }
     } catch (_) {}
 
@@ -703,7 +722,7 @@ router.get("/oauth/callback", async (req, res) => {
         return res
           .status(409)
           .send(
-            "Essa conta do Mercado Livre já está vinculada a outra empresa neste sistema."
+            "Essa conta do Mercado Livre já está vinculada a outra empresa neste sistema.",
           );
       }
 
@@ -721,8 +740,6 @@ router.get("/oauth/callback", async (req, res) => {
 
 // ===============================
 // GET /api/meli/current
-// - Usuário normal/admin: valida por empresa
-// - Master: lê qualquer conta selecionada
 // ===============================
 router.get("/current", async (req, res) => {
   try {
@@ -744,7 +761,7 @@ router.get("/current", async (req, res) => {
              join empresas e on e.id = c.empresa_id
             where c.id = $1
             limit 1`,
-          [contaId]
+          [contaId],
         );
         return c.rows[0] || null;
       }
@@ -757,7 +774,7 @@ router.get("/current", async (req, res) => {
            from meli_contas
           where id = $1 and empresa_id = $2
           limit 1`,
-        [contaId, emp.empresa_id]
+        [contaId, emp.empresa_id],
       );
       return c.rows[0] || null;
     });

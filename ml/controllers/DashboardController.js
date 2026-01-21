@@ -3,16 +3,28 @@
 const _fetch = typeof fetch !== "undefined" ? fetch : require("node-fetch");
 const fetchRef = (...args) => _fetch(...args);
 
-function pickAccessToken(req) {
-  const t = req?.ml?.accessToken;
-  if (!t) {
+function pickAccessToken(req, res) {
+  // ✅ prioridade: o que teu ensureAccount injeta
+  const t1 = res?.locals?.mlCreds?.access_token;
+
+  // compat com outros formatos antigos
+  const t2 =
+    req?.ml?.accessToken ||
+    req?.ml?.access_token ||
+    req?.mlCreds?.access_token ||
+    null;
+
+  const token = t1 || t2;
+
+  if (!token) {
     const err = new Error(
-      "Token ML ausente em req.ml.accessToken (authMiddleware não injetou)."
+      "Token ML ausente. Esperado em res.locals.mlCreds.access_token (ensureAccount) ou em req.ml.accessToken.",
     );
     err.statusCode = 401;
     throw err;
   }
-  return t;
+
+  return token;
 }
 
 function pad2(n) {
@@ -24,11 +36,10 @@ function isYYYYMM(s) {
 }
 
 function daysInMonth(year, month1to12) {
-  return new Date(year, month1to12, 0).getDate(); // month=2 => last day of Feb
+  return new Date(year, month1to12, 0).getDate();
 }
 
 function todayInTZ(tz) {
-  // pega data "local" no tz e retorna YYYY-MM-DD
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: tz,
     year: "numeric",
@@ -83,7 +94,6 @@ async function httpGetJson(url, accessToken, retries = 2) {
       return data;
     } catch (e) {
       lastErr = e;
-      // retry simples
       if (i < retries) await new Promise((r) => setTimeout(r, 250 * (i + 1)));
     }
   }
@@ -100,8 +110,6 @@ async function fetchAllPaidOrders(accessToken, sellerId, fromISO, toISO) {
   let offset = 0;
   let total = Infinity;
 
-  // filtros mais comuns suportados: seller + order.status + range por date_created
-  // (se você quiser trocar pra date_closed depois, a gente ajusta)
   while (offset < total && offset < 5000) {
     const url =
       "https://api.mercadolibre.com/orders/search" +
@@ -148,7 +156,8 @@ class DashboardController {
     try {
       const tz = String(req.query.tz || "America/Sao_Paulo");
 
-      const accessToken = pickAccessToken(req);
+      // ✅ FIX: pega token do res.locals (ensureAccount)
+      const accessToken = pickAccessToken(req, res);
 
       const todayISO = todayInTZ(tz);
       const currentMonthKey = monthKeyFromISO(todayISO);
@@ -162,7 +171,6 @@ class DashboardController {
       const isCurrentMonth = targetMonthKey === currentMonthKey;
       const todayDay = parseInt(String(todayISO).slice(8, 10), 10);
 
-      // dia "efetivo" pro cálculo (se mês atual, usa dia atual; se mês fechado, usa último dia)
       const dayOfMonth = isCurrentMonth ? todayDay : dim;
 
       const monthStartISO = `${targetMonthKey}-01`;
@@ -183,7 +191,6 @@ class DashboardController {
 
       const orders = await fetchAllPaidOrders(accessToken, sellerId, from, to);
 
-      // daily series
       const daily = buildDailySeries(yy, mm, dim);
       const indexByDate = new Map(daily.map((x, i) => [x.date, i]));
 
@@ -205,16 +212,15 @@ class DashboardController {
         const items = Array.isArray(o?.order_items) ? o.order_items : [];
         for (const it of items) units += Number(it?.quantity || 0);
 
-        // usa date_closed se existir; senão date_created
         const dateRaw = String(o?.date_closed || o?.date_created || "").slice(
           0,
-          10
+          10,
         );
         const idx = indexByDate.get(dateRaw);
         if (idx != null) {
           daily[idx].revenue += paidAmount;
           daily[idx].orders += 1;
-          // units por dia (soma qty)
+
           let u = 0;
           for (const it of items) u += Number(it?.quantity || 0);
           daily[idx].units += u;
@@ -245,9 +251,7 @@ class DashboardController {
           ticket_medio: ticket,
         },
         breakdown: {
-          // total do mês (até hoje, se mês atual)
           total_all: revenue,
-          // Ads e orgânico vão ser preenchidos no frontend (via /api/publicidade)
           ads_direct_amount: 0,
           organic_estimated: revenue,
         },

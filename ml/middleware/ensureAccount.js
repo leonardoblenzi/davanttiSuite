@@ -98,18 +98,18 @@ function wantsHtml(req) {
 // Helpers: base path (suite /ml vs standalone /)
 // ===============================
 function mountBase(req) {
-  const b = String(req.baseUrl || '');
-  const i = b.indexOf('/api/');
-  if (i >= 0) return b.slice(0, i) || '';
+  const b = String(req.baseUrl || "");
+  const i = b.indexOf("/api/");
+  if (i >= 0) return b.slice(0, i) || "";
   return b;
 }
 
 function withBase(req, path) {
   const base = mountBase(req);
-  if (!path) return base || '/';
+  if (!path) return base || "/";
   if (/^https?:\/\//i.test(path)) return path;
-  const p = path.startsWith('/') ? path : `/${path}`;
-  if (base && (p === base || p.startsWith(base + '/'))) return p;
+  const p = path.startsWith("/") ? path : `/${path}`;
+  if (base && (p === base || p.startsWith(base + "/"))) return p;
   return base + p;
 }
 
@@ -123,8 +123,25 @@ function deny(
   return res.status(status).json({ ok: false, error, redirect: redir });
 }
 
-function clearOAuthCookie(res) {
-  res.clearCookie(COOKIE_OAUTH, { path: "/" });
+// ===============================
+// Cookie hygiene (evitar loop por cookie com Path errado)
+// ===============================
+function getCookieRootPath(req) {
+  const u = String(req?.originalUrl || "");
+  return u.startsWith("/ml/") || u === "/ml" ? "/ml" : "/";
+}
+
+function clearOAuthCookie(res, req) {
+  // Limpa em múltiplos paths para matar resíduos de versões antigas.
+  // Isso evita o cenário: cookie setado com Path "/ml/api/meli" não chega no "/ml/dashboard".
+  const root = getCookieRootPath(req);
+  const paths = new Set(["/", "/ml", "/ml/api", "/ml/api/meli", root]);
+
+  for (const p of paths) {
+    try {
+      res.clearCookie(COOKIE_OAUTH, { path: p });
+    } catch (_) {}
+  }
 }
 
 // ===============================
@@ -389,7 +406,7 @@ async function ensureAccount(req, res, next) {
       : await getOAuthCredsForUserAndContaId(uid, meliContaId);
 
     if (!pack) {
-      clearOAuthCookie(res);
+      clearOAuthCookie(res, req);
 
       return deny(req, res, {
         status: 401,
