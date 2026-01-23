@@ -57,21 +57,53 @@ function ensurePermission(req, res, next) {
   return next();
 }
 
-function deny(res, status, error) {
-  return res.status(status).json({ ok: false, error });
+function isApi(req) {
+  const p = req.path || req.originalUrl || "";
+  return String(p).startsWith("/api/");
+}
+
+function wantsHtml(req) {
+  if (isApi(req)) return false;
+  const accept = String(req.headers?.accept || "").toLowerCase();
+  // fetch() geralmente manda */* — não tratar como HTML
+  if (!accept) return false;
+  return accept.includes("text/html") || accept.includes("application/xhtml+xml");
+}
+
+function mountBase(req) {
+  const b = String(req.baseUrl || "");
+  const i = b.indexOf("/api/");
+  if (i >= 0) return b.slice(0, i) || "";
+  return b;
+}
+
+function withBase(req, path) {
+  const base = mountBase(req);
+  if (!path) return base || "/";
+  if (/^https?:\/\//i.test(path)) return path;
+  const p = path.startsWith("/") ? path : `/${path}`;
+  if (base && (p === base || p.startsWith(base + "/"))) return p;
+  return base + p;
+}
+
+function deny(req, res, status, error, redirect = "/nao-autorizado") {
+  if (wantsHtml(req) && req.method === "GET") {
+    return res.redirect(withBase(req, redirect));
+  }
+  return res.status(status).json({ ok: false, error, redirect: withBase(req, redirect) });
 }
 
 ensurePermission.requireAdmin = function requireAdmin() {
   return (req, res, next) => {
     if (isMaster(req) || isAdmin(req)) return next();
-    return deny(res, 403, "Não autorizado (admin requerido)");
+    return deny(req, res, 403, "Não autorizado (admin requerido)");
   };
 };
 
 ensurePermission.requireMaster = function requireMaster() {
   return (req, res, next) => {
     if (isMaster(req)) return next();
-    return deny(res, 403, "Não autorizado (master requerido)");
+    return deny(req, res, 403, "Não autorizado (master requerido)");
   };
 };
 

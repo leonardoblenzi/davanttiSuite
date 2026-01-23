@@ -4,6 +4,11 @@ const TokenService = require("../services/tokenService");
 
 // Rotas/métodos que não precisam de token ML (evita refresh desnecessário)
 const SKIP_PATHS = [
+  // ✅ Admin do sistema NÃO deve depender de token ML / conta selecionada
+  // (MASTER precisa conseguir entrar no painel mesmo sem meli_conta_id)
+  /^\/admin(?:\/|$)/i,
+  /^\/api\/admin(?:\/|$)/i,
+
   // ✅ OAuth / seleção/vinculação (não precisa token ML)
   // (mais seguro: pula tudo do /api/meli e /api/account)
   /^\/api\/meli(?:\/|$)/i,
@@ -29,6 +34,25 @@ function isSkipped(req) {
   if (SKIP_METHODS.has(req.method)) return true;
   const p = req.path || req.originalUrl || "";
   return SKIP_PATHS.some((rx) => rx.test(p));
+}
+
+// =====================
+// Helpers: base path (suite /ml vs standalone /)
+// =====================
+function mountBase(req) {
+  const b = String(req.baseUrl || "");
+  const i = b.indexOf("/api/");
+  if (i >= 0) return b.slice(0, i) || "";
+  return b;
+}
+
+function withBase(req, path) {
+  const base = mountBase(req);
+  if (!path) return base || "/";
+  if (/^https?:\/\//i.test(path)) return path;
+  const p = path.startsWith("/") ? path : `/${path}`;
+  if (base && (p === base || p.startsWith(base + "/"))) return p;
+  return base + p;
 }
 
 function ensureCredsBag(res) {
@@ -78,17 +102,19 @@ function wantsHtml(req) {
  * - Se não há conta selecionada -> /select-conta
  * - Se há conta, mas falta refresh_token -> /vincular-conta
  */
-function computeRedirectForTokenFailure(res) {
+function computeRedirectForTokenFailure(req, res) {
   const creds = res?.locals?.mlCreds || {};
   const hasConta = !!creds.meli_conta_id || !!res?.locals?.accountKey;
 
-  if (hasConta && !creds.refresh_token) return "/vincular-conta";
-  return "/select-conta";
+  // ✅ IMPORTANTE: quando o ML app está montado na Suite em /ml,
+  // redirects precisam incluir o prefixo /ml, senão cai na Suite e vira 404.
+  if (hasConta && !creds.refresh_token) return withBase(req, "/vincular-conta");
+  return withBase(req, "/select-conta");
 }
 
-function build401Payload(message, res, extra = {}) {
+function build401Payload(message, req, res, extra = {}) {
   const account = getAccountMeta(res);
-  const redirect = computeRedirectForTokenFailure(res);
+  const redirect = computeRedirectForTokenFailure(req, res);
 
   return {
     ok: false,
@@ -111,7 +137,7 @@ const authMiddleware = async (req, res, next) => {
     const token = await TokenService.renovarTokenSeNecessario(creds);
 
     if (!token) {
-      const redirect = computeRedirectForTokenFailure(res);
+      const redirect = computeRedirectForTokenFailure(req, res);
 
       if (wantsHtml(req) && req.method === "GET") return res.redirect(redirect);
 
@@ -120,6 +146,7 @@ const authMiddleware = async (req, res, next) => {
         .json(
           build401Payload(
             "Token de acesso indisponível para a conta atual",
+            req,
             res
           )
         );
@@ -144,7 +171,7 @@ const authMiddleware = async (req, res, next) => {
   } catch (error) {
     console.error("❌ authMiddleware:", error?.message || error);
 
-    const redirect = computeRedirectForTokenFailure(res);
+    const redirect = computeRedirectForTokenFailure(req, res);
 
     if (wantsHtml(req) && req.method === "GET") return res.redirect(redirect);
 
@@ -154,6 +181,7 @@ const authMiddleware = async (req, res, next) => {
         build401Payload(
           "Token inválido e não foi possível renovar: " +
             (error?.message || "Erro desconhecido"),
+          req,
           res
         )
       );
