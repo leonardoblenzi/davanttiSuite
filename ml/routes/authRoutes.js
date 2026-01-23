@@ -7,10 +7,10 @@ const db = require("../db/db");
 
 const router = express.Router();
 
-const JWT_SECRET = (process.env.ML_JWT_SECRET || process.env.JWT_SECRET);
+const JWT_SECRET = process.env.ML_JWT_SECRET || process.env.JWT_SECRET;
 if (!JWT_SECRET) {
   throw new Error(
-    "JWT_SECRET não definido. Configure no .env / Render Environment."
+    "JWT_SECRET não definido. Configure no .env / Render Environment.",
   );
 }
 
@@ -23,11 +23,27 @@ const isProd =
 const ALLOW_USER_LOGIN =
   String(process.env.ALLOW_USER_LOGIN ?? "true").toLowerCase() === "true";
 
+// ✅ Importante em ambientes com múltiplos schemas (suite):
+// Se existir outra tabela "usuarios" em outro schema (ex: schema ml),
+// o Postgres pode resolver a tabela errada via search_path e o login vira 401.
+// Para evitar isso, qualificamos as tabelas com schema explícito.
+// Você pode mudar via ENV AUTH_DB_SCHEMA, mas por padrão usamos "public".
+const AUTH_SCHEMA =
+  String(process.env.AUTH_DB_SCHEMA || "public")
+    .trim()
+    .replace(/[^a-zA-Z0-9_]/g, "") || "public";
+
+function T(name) {
+  return `${AUTH_SCHEMA}.${name}`;
+}
+
 // =====================
 // Helpers
 // =====================
 function normalizeNivel(n) {
-  return String(n || "").trim().toLowerCase();
+  return String(n || "")
+    .trim()
+    .toLowerCase();
 }
 
 function isAdmin(nivel) {
@@ -56,20 +72,20 @@ function cookieOptions() {
 // Helpers: base path (suite /ml vs standalone /)
 // =====================
 function mountBase(req) {
-  const b = String(req.baseUrl || '');
-  const i = b.indexOf('/api/');
-  if (i >= 0) return b.slice(0, i) || '';
+  const b = String(req.baseUrl || "");
+  const i = b.indexOf("/api/");
+  if (i >= 0) return b.slice(0, i) || "";
   return b;
 }
 
 function withBase(req, path) {
-  let p = String(path || '');
-  if (!p) return mountBase(req) || '/';
+  let p = String(path || "");
+  if (!p) return mountBase(req) || "/";
   if (/^https?:\/\//i.test(p)) return p;
-  if (!p.startsWith('/')) p = '/' + p;
+  if (!p.startsWith("/")) p = "/" + p;
 
   const base = mountBase(req);
-  if (base && (p === base || p.startsWith(base + '/'))) return p;
+  if (base && (p === base || p.startsWith(base + "/"))) return p;
   return base + p;
 }
 
@@ -78,7 +94,9 @@ function withBase(req, path) {
 // =====================
 router.post("/register", express.json({ limit: "1mb" }), async (req, res) => {
   const nome = String(req.body?.nome || "").trim() || null;
-  const email = String(req.body?.email || "").trim().toLowerCase();
+  const email = String(req.body?.email || "")
+    .trim()
+    .toLowerCase();
   const senha = String(req.body?.senha || "");
   const empresa_nome = String(req.body?.empresa_nome || "").trim();
 
@@ -104,28 +122,28 @@ router.post("/register", express.json({ limit: "1mb" }), async (req, res) => {
         const senha_hash = await bcrypt.hash(senha, 10);
 
         const u = await client.query(
-          `insert into usuarios (nome, email, senha_hash, nivel)
+          `insert into ${T("usuarios")} (nome, email, senha_hash, nivel)
            values ($1, $2, $3, 'usuario')
            returning id, nome, email, nivel, criado_em`,
-          [nome, email, senha_hash]
+          [nome, email, senha_hash],
         );
 
         const user = u.rows[0];
 
         const e = await client.query(
-          `insert into empresas (nome)
+          `insert into ${T("empresas")} (nome)
            values ($1)
            returning id, nome, criado_em`,
-          [empresa_nome]
+          [empresa_nome],
         );
 
         const empresa = e.rows[0];
 
         await client.query(
-          `insert into empresa_usuarios (empresa_id, usuario_id, papel)
+          `insert into ${T("empresa_usuarios")} (empresa_id, usuario_id, papel)
            values ($1, $2, 'owner')
            on conflict do nothing`,
-          [empresa.id, user.id]
+          [empresa.id, user.id],
         );
 
         await client.query("commit");
@@ -138,7 +156,6 @@ router.post("/register", express.json({ limit: "1mb" }), async (req, res) => {
 
     const { user } = result;
 
-    // ✅ normalize o nível no token (evita divergências de case)
     const token = signToken({
       uid: user.id,
       email: user.email,
@@ -156,7 +173,7 @@ router.post("/register", express.json({ limit: "1mb" }), async (req, res) => {
         email: user.email,
         nivel: normalizeNivel(user.nivel),
       },
-      redirect: withBase(req, '/vincular-conta'),
+      redirect: withBase(req, "/vincular-conta"),
     });
   } catch (err) {
     if (String(err.code) === "23505") {
@@ -174,7 +191,9 @@ router.post("/register", express.json({ limit: "1mb" }), async (req, res) => {
 // =====================
 router.post("/login", express.json({ limit: "200kb" }), async (req, res) => {
   try {
-    const email = String(req.body?.email || "").trim().toLowerCase();
+    const email = String(req.body?.email || "")
+      .trim()
+      .toLowerCase();
     const senha = String(req.body?.senha || "");
 
     if (!email || !senha) {
@@ -185,10 +204,10 @@ router.post("/login", express.json({ limit: "200kb" }), async (req, res) => {
 
     const { rows } = await db.query(
       `select id, nome, email, senha_hash, nivel
-         from usuarios
+         from ${T("usuarios")}
         where email = $1
         limit 1`,
-      [email]
+      [email],
     );
 
     const user = rows[0];
@@ -200,7 +219,6 @@ router.post("/login", express.json({ limit: "200kb" }), async (req, res) => {
 
     const nivel = normalizeNivel(user.nivel);
 
-    // ✅ Bloqueia login de "usuario" se você quiser (ENV)
     if (!ALLOW_USER_LOGIN && nivel === "usuario") {
       return res.status(403).json({
         ok: false,
@@ -217,22 +235,20 @@ router.post("/login", express.json({ limit: "200kb" }), async (req, res) => {
     }
 
     await db.query(
-      `update usuarios set ultimo_login_em = now() where id = $1`,
-      [user.id]
+      `update ${T("usuarios")} set ultimo_login_em = now() where id = $1`,
+      [user.id],
     );
 
-    // ✅ normalize o nível no token SEMPRE
     const token = signToken({
       uid: user.id,
       email: user.email,
-      nivel, // 'usuario' | 'administrador' | 'admin_master'
+      nivel,
       nome: user.nome || null,
     });
 
     res.cookie("auth_token", token, cookieOptions());
 
-    // Seu fluxo atual
-    const redirect = withBase(req, '/select-conta');
+    const redirect = withBase(req, "/select-conta");
 
     return res.json({
       ok: true,
@@ -280,15 +296,18 @@ router.get("/me", (req, res) => {
     const _is_master = isMaster(nivel);
     const _is_admin_any = _is_admin || _is_master;
 
-    // ✅ devolve flags no topo + mantém flags agrupadas (compatibilidade)
     return res.json({
       ok: true,
       logged: true,
-      user: { ...payload, nivel }, // garante nivel normalizado
+      user: { ...payload, nivel },
       is_admin: _is_admin,
       is_master: _is_master,
       is_admin_any: _is_admin_any,
-      flags: { is_admin: _is_admin, is_master: _is_master, is_admin_any: _is_admin_any },
+      flags: {
+        is_admin: _is_admin,
+        is_master: _is_master,
+        is_admin_any: _is_admin_any,
+      },
     });
   } catch {
     return res.json({ ok: true, logged: false });
