@@ -18,18 +18,7 @@ if (!DATABASE_URL) {
 }
 
 // ✅ Schema padrão do ML (pode trocar no Render)
-// ✅ Schema do ML (pode trocar no Render)
-//
-// ⚠️ Nota importante:
-// O DavanttiSuite historicamente criou as tabelas no schema padrão (public).
-// Se você definir ML_DB_SCHEMA=ml e existir uma tabela com o mesmo nome no schema "ml"
-// (por exemplo, uma "usuarios" vazia), o Postgres vai priorizar essa tabela e o login
-// vai começar a dar "credenciais inválidas" mesmo com o usuário existindo.
-//
-// Por isso, o padrão aqui é PUBLIC, e o search_path fica "public, <schema_ml>".
-// Se você realmente quiser priorizar o schema ML primeiro, defina:
-//   ML_DB_SEARCH_PATH_MODE=ml_first
-const ML_DB_SCHEMA = String(process.env.ML_DB_SCHEMA || "public").trim();
+const ML_DB_SCHEMA = String(process.env.ML_DB_SCHEMA || "ml").trim();
 
 // No Render, é comum precisar SSL (principalmente se usar External Database URL).
 const isProd =
@@ -52,29 +41,21 @@ const pool = new Pool({
   connectionTimeoutMillis: 10_000,
 });
 
-const SEARCH_PATH_MODE = String(process.env.ML_DB_SEARCH_PATH_MODE || "public_first")
-  .trim()
-  .toLowerCase();
-
-function buildSearchPath() {
-  // se o schema for public, não precisa adicionar duplicado
-  if (SAFE_SCHEMA === "public") return "public";
-
-  // default: public primeiro (evita pegar tabelas vazias no schema ml e quebrar login)
-  if (SEARCH_PATH_MODE === "ml_first") return `${SAFE_SCHEMA}, public`;
-
-  return `public, ${SAFE_SCHEMA}`;
-}
-
 // ✅ Toda conexão nova no pool recebe o search_path (zero-code)
 pool.on("connect", async (client) => {
   try {
-    const sp = buildSearchPath();
-    await client.query(`set search_path to ${sp};`);
+    // ✅ Preferimos `public` primeiro para evitar colisões.
+    // Exemplo real: se existir uma tabela "usuarios" vazia no schema `ml`,
+    // e seus usuários reais estiverem em `public.usuarios`, o login quebraria.
+    // Com `public, ml`, o Postgres tenta `public` e só cai para `ml` se a tabela não existir em `public`.
+    const searchPath =
+      SAFE_SCHEMA === "public" ? "public" : `public, ${SAFE_SCHEMA}`;
+
+    await client.query(`set search_path to ${searchPath};`);
   } catch (e) {
     // não derruba a app por causa disso
     console.warn(
-      `⚠️ [DB] Não foi possível setar search_path (${buildSearchPath()}). Usando default. Motivo:`,
+      `⚠️ [DB] Não foi possível setar search_path. Usando default. Motivo:`,
       e?.message || e,
     );
   }
