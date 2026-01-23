@@ -68,21 +68,19 @@ function cookieOptions() {
 // =====================
 // Helpers: base path (suite /ml vs standalone /)
 // =====================
-function mountBase(req) {
-  const b = String(req.baseUrl || "");
-  const i = b.indexOf("/api/");
-  if (i >= 0) return b.slice(0, i) || "";
-  return b;
+
+function baseFromReq(req) {
+  // quando authRoutes tá montado em /api/auth, req.baseUrl é "/api/auth"
+  // mas na suite, o originalUrl começa com "/ml/api/auth/..."
+  const full = String(req.originalUrl || "");
+  const i = full.indexOf("/api/auth");
+  if (i >= 0) return full.slice(0, i) || "";
+  return "";
 }
 
 function withBase(req, path) {
-  let p = String(path || "");
-  if (!p) return mountBase(req) || "/";
-  if (/^https?:\/\//i.test(p)) return p;
-  if (!p.startsWith("/")) p = "/" + p;
-
-  const base = mountBase(req);
-  if (base && (p === base || p.startsWith(base + "/"))) return p;
+  const base = baseFromReq(req); // ✅ pega "/ml" na suite
+  const p = path.startsWith("/") ? path : `/${path}`;
   return base + p;
 }
 
