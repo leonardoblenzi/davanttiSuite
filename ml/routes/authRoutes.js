@@ -7,7 +7,7 @@ const db = require("../db/db");
 
 const router = express.Router();
 
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = (process.env.ML_JWT_SECRET || process.env.JWT_SECRET);
 if (!JWT_SECRET) {
   throw new Error(
     "JWT_SECRET não definido. Configure no .env / Render Environment."
@@ -52,29 +52,25 @@ function cookieOptions() {
   };
 }
 
-// ==========================================
-// Prefix helper (suporta app montado em /ml)
-// ==========================================
-function getMountPrefix(req) {
-  try {
-    const original = String(req.originalUrl || "");
-    const baseUrl = String(req.baseUrl || "");
-    const path = String(req.path || "");
-
-    // Ex: original=/ml/api/auth/login, baseUrl=/api/auth, path=/login => prefix=/ml
-    const tail = baseUrl + path;
-    if (tail && original.endsWith(tail)) return original.slice(0, -tail.length);
-
-    const idx = tail ? original.indexOf(tail) : -1;
-    if (idx >= 0) return original.slice(0, idx);
-  } catch (_e) {}
-  return "";
+// =====================
+// Helpers: base path (suite /ml vs standalone /)
+// =====================
+function mountBase(req) {
+  const b = String(req.baseUrl || '');
+  const i = b.indexOf('/api/');
+  if (i >= 0) return b.slice(0, i) || '';
+  return b;
 }
 
-function withPrefix(req, p) {
-  const prefix = getMountPrefix(req);
-  const path = String(p || "");
-  return prefix + (path.startsWith("/") ? path : "/" + path);
+function withBase(req, path) {
+  let p = String(path || '');
+  if (!p) return mountBase(req) || '/';
+  if (/^https?:\/\//i.test(p)) return p;
+  if (!p.startsWith('/')) p = '/' + p;
+
+  const base = mountBase(req);
+  if (base && (p === base || p.startsWith(base + '/'))) return p;
+  return base + p;
 }
 
 // =====================
@@ -160,7 +156,7 @@ router.post("/register", express.json({ limit: "1mb" }), async (req, res) => {
         email: user.email,
         nivel: normalizeNivel(user.nivel),
       },
-      redirect: withPrefix(req, "/vincular-conta"),
+      redirect: withBase(req, '/vincular-conta'),
     });
   } catch (err) {
     if (String(err.code) === "23505") {
@@ -236,7 +232,7 @@ router.post("/login", express.json({ limit: "200kb" }), async (req, res) => {
     res.cookie("auth_token", token, cookieOptions());
 
     // Seu fluxo atual
-    const redirect = withPrefix(req, "/select-conta");
+    const redirect = withBase(req, '/select-conta');
 
     return res.json({
       ok: true,

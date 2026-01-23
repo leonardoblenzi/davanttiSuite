@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login Mercado Livre</title>
   <!-- ✅ como seu express expõe /public, use caminho absoluto -->
-  <link rel="stylesheet" href="css/login.css">
+  <link rel="stylesheet" href="/ml/css/login.css">
 </head>
 
 <body>
@@ -65,16 +65,20 @@
 
     <div class="auth-links">
       Não tem conta?
-      <a href="cadastro">Cadastre-se</a>
+      <a href="/ml/cadastro">Cadastre-se</a>
     </div>
 
   </div>
+  <script src="/ml/js/ml-base.js"></script>
 
   <script>
     (function () {
       const form = document.getElementById('login-form');
       const msg  = document.getElementById('login-msg');
       const btn  = document.getElementById('btn-entrar');
+
+      // ✅ Detecta base do app (suite /ml)
+      const BASE = (location.pathname === '/ml' || location.pathname.startsWith('/ml/')) ? '/ml' : '';
 
       function showMsg(text, type) {
         msg.style.display = 'block';
@@ -86,6 +90,15 @@
       function setLoading(isLoading) {
         btn.disabled = isLoading;
         btn.textContent = isLoading ? 'Entrando...' : 'Entrar';
+      }
+
+      function withBase(path) {
+        // já veio com /ml
+        if (path.startsWith('/ml/')) return path;
+        // veio absoluto na raiz
+        if (path.startsWith('/')) return BASE + path;
+        // veio relativo
+        return BASE + '/' + path;
       }
 
       form.addEventListener('submit', async (e) => {
@@ -104,7 +117,7 @@
         setLoading(true);
 
         try {
-          const resp = await fetch('api/auth/login', {
+          const resp = await fetch(`${BASE}/api/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include', // ✅ garante cookie JWT/ sessão
@@ -120,10 +133,9 @@
             return;
           }
 
-          // ✅ login OK → vai para select-conta
-          const base = window.location.pathname.startsWith('/ml/') ? '/ml' : '';
-          const redirect = data.redirect || (base + '/select-conta');
-          window.location.href = redirect;
+          // ✅ login OK → vai para select-conta (sempre dentro do /ml)
+          const redirect = data.redirect || '/select-conta';
+          window.location.href = withBase(redirect);
 
         } catch (err) {
           showMsg('Erro de rede ao tentar logar. Verifique o servidor e tente novamente.', 'err');

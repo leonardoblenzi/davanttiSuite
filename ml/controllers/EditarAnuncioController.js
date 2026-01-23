@@ -3,25 +3,6 @@
 
 const EditarAnuncioService = require("../services/editarAnuncioService");
 
-// ===============================
-// Helpers: base path (suite /ml vs standalone /)
-// ===============================
-function mountBase(req) {
-  const b = String(req.baseUrl || "");
-  const i = b.indexOf("/api/");
-  if (i >= 0) return b.slice(0, i) || "";
-  return b;
-}
-
-function withBase(req, path) {
-  const base = mountBase(req);
-  if (!path) return base || "/";
-  if (/^https?:\/\//i.test(path)) return path;
-  const p = String(path).startsWith("/") ? String(path) : `/${path}`;
-  if (base && (p === base || p.startsWith(base + "/"))) return p;
-  return base + p;
-}
-
 function pickAccessToken(req, res) {
   // padrão do teu projeto: authMiddleware injeta req.ml.accessToken
   const token = req?.ml?.accessToken || res?.locals?.mlCreds?.access_token;
@@ -100,7 +81,7 @@ module.exports = {
         res,
         401,
         "Token ML ausente. Selecione a conta novamente.",
-        { redirect: withBase(req, "/select-conta") }
+        { redirect: "/select-conta" }
       );
 
     const mlb = normalizeMlb(req.params.mlb);
@@ -137,7 +118,7 @@ module.exports = {
         res,
         401,
         "Token ML ausente. Selecione a conta novamente.",
-        { redirect: withBase(req, "/select-conta") }
+        { redirect: "/select-conta" }
       );
 
     const mlb = normalizeMlb(req.params.mlb);
@@ -178,7 +159,7 @@ module.exports = {
         res,
         401,
         "Token ML ausente. Selecione a conta novamente.",
-        { redirect: withBase(req, "/select-conta") }
+        { redirect: "/select-conta" }
       );
 
     const mlb = normalizeMlb(req.params.mlb);
@@ -216,7 +197,7 @@ module.exports = {
         res,
         401,
         "Token ML ausente. Selecione a conta novamente.",
-        { redirect: withBase(req, "/select-conta") }
+        { redirect: "/select-conta" }
       );
 
     const mlb = normalizeMlb(req.params.mlb);
@@ -248,7 +229,7 @@ module.exports = {
         res,
         401,
         "Token ML ausente. Selecione a conta novamente.",
-        { redirect: withBase(req, "/select-conta") }
+        { redirect: "/select-conta" }
       );
 
     const mlb = normalizeMlb(req.params.mlb);

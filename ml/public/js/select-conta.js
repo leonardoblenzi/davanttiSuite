@@ -16,42 +16,8 @@
 (() => {
   const $ = (sel) => document.querySelector(sel);
 
-  // ============================================================
-  // ✅ Helper de URL (suite /ml vs standalone /) — ROBUSTO
-  // - Se existir window.mlUrl, usa.
-  // - Se não existir, detecta automaticamente se está em /ml (ou /x/ml)
-  //   e prefixa as rotas corretamente.
-  // ============================================================
-  function detectBase() {
-    const p = String(window.location?.pathname || "/");
-
-    // caso padrão: /ml/...
-    if (p === "/ml" || p.startsWith("/ml/")) return "/ml";
-
-    // caso suite: /alguma-coisa/ml/...
-    const idx = p.indexOf("/ml/");
-    if (idx >= 0) return p.slice(0, idx + 3); // inclui "/ml"
-
-    return "";
-  }
-
-  const U = (path) => {
-    if (typeof window.mlUrl === "function") return window.mlUrl(path);
-
-    const base = detectBase();
-
-    if (!path) return base || "/";
-    if (/^https?:\/\//i.test(path)) return path;
-
-    const p = path.startsWith("/") ? path : `/${path}`;
-
-    if (!base) return p;
-
-    // evita duplicar base
-    if (p === base || p.startsWith(base + "/")) return p;
-
-    return base + p;
-  };
+  // ✅ Helper de URL (suite /ml vs standalone /)
+  const U = (p) => (typeof window.mlUrl === "function" ? window.mlUrl(p) : p);
 
   const elList = $("#list");
   const elAlert = $("#alert");
@@ -109,8 +75,8 @@
       type === "err"
         ? "rgba(255,90,90,.12)"
         : type === "ok"
-          ? "rgba(46,204,113,.12)"
-          : "rgba(255,230,0,.12)";
+        ? "rgba(46,204,113,.12)"
+        : "rgba(255,230,0,.12)";
     elAlert.style.color =
       type === "err" ? "#ff5a5a" : type === "ok" ? "#2ecc71" : "#ffe600";
   }
@@ -150,7 +116,7 @@
           "&": "&amp;",
           '"': "&quot;",
           "'": "&#39;",
-        })[c],
+        }[c])
     );
   }
 
@@ -163,7 +129,8 @@
   }
 
   // ===========================
-  // Parse de data robusto
+  // Parse de data robusto (corrige "expirado" falso)
+  // - aceita ISO com timezone, timestamp, e formato postgres "YYYY-MM-DD HH:mm:ss"
   // ===========================
   function parseDateSmart(v) {
     if (!v) return null;
@@ -190,9 +157,11 @@
       return Number.isNaN(d.getTime()) ? null : d;
     }
 
-    // Postgres comum: "YYYY-MM-DD HH:mm:ss"
+    // Postgres comum: "YYYY-MM-DD HH:mm:ss" (sem timezone)
+    // Interpreta como horário local do browser (consistente) e converte corretamente.
+    // Se seu backend mandar esse formato, isso evita "Invalid Date"/timezone bug.
     const m = s.match(
-      /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/,
+      /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/
     );
     if (m) {
       const year = Number(m[1]);
@@ -396,14 +365,8 @@
     );
   }
 
-  // ✅ usa expires_in_min do backend quando existir (mais confiável)
-  function calcExpiryMinutesFromConta(c) {
-    const rawMin = Number(c?.expires_in_min);
-    if (Number.isFinite(rawMin)) return rawMin;
-
-    const accessExpiresAt = c?.access_expires_at;
+  function calcExpiryMinutes(accessExpiresAt) {
     if (!accessExpiresAt) return null;
-
     const d = parseDateSmart(accessExpiresAt);
     if (!d) return null;
     return Math.floor((d.getTime() - Date.now()) / 60000);
@@ -416,7 +379,7 @@
       ? `<span style="${badgeStyle("ok")}">✅ Tokens OK</span>`
       : `<span style="${badgeStyle("warn")}">⛔ Sem tokens</span>`;
 
-    const mins = calcExpiryMinutesFromConta(c);
+    const mins = calcExpiryMinutes(c?.access_expires_at);
 
     // Melhor UX: quando não tem tokens, não mostra "Expirado"
     if (!hasTokens) {
@@ -434,11 +397,11 @@
         expBadge = `<span style="${badgeStyle("err")}">⏳ Expirado</span>`;
       else if (mins <= 10)
         expBadge = `<span style="${badgeStyle(
-          "warn",
+          "warn"
         )}">⚠️ Expira em ${mins} min</span>`;
       else
         expBadge = `<span style="${badgeStyle(
-          "muted",
+          "muted"
         )}">⏳ Expira em ${mins} min</span>`;
     }
 
@@ -467,7 +430,7 @@
         renderEmpty("Nenhuma conta encontrada com os filtros atuais.");
       } else {
         renderEmpty(
-          "Nenhuma conta do Mercado Livre vinculada ainda.\nClique em Vincular Conta para conectar a primeira.",
+          "Nenhuma conta do Mercado Livre vinculada ainda.\nClique em Vincular Conta para conectar a primeira."
         );
       }
       if (elCurrent) elCurrent.textContent = "Não selecionada";
@@ -618,8 +581,9 @@
     }
   }
 
-  // ✅ valida seleção sem depender de /api/meli/current
+  // ✅ NOVO: valida seleção sem depender de /api/meli/current (que pode exigir token ML)
   async function validarSelecaoSemTokenML(expectedId) {
+    // /api/meli/contas costuma estar em SKIP no authMiddleware => sempre JSON
     const { r, data } = await fetchJson(U("/api/meli/contas"));
     if (!r.ok || !data || data.ok !== true) {
       throw new Error(`Não foi possível validar seleção (HTTP ${r.status}).`);
@@ -630,7 +594,7 @@
     }
     if (Number(cur) !== Number(expectedId)) {
       throw new Error(
-        `Conta atual (${cur}) diferente da selecionada (${expectedId}).`,
+        `Conta atual (${cur}) diferente da selecionada (${expectedId}).`
       );
     }
     return true;
@@ -653,13 +617,13 @@
       state.currentId = meli_conta_id;
       render();
 
-      // ✅ Valida via /api/meli/contas
+      // ✅ Valida via /api/meli/contas (não depende de token ML)
       try {
         await validarSelecaoSemTokenML(meli_conta_id);
       } catch (e) {
         showAlert(
           `Conta selecionada, mas não consegui validar sessão: ${e.message}`,
-          "warn",
+          "warn"
         );
       }
 

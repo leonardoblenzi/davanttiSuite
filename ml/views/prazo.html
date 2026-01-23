@@ -40,16 +40,16 @@
   <!-- NAV TABS -->
   <nav class="main-nav">
     <div class="tabs">
-      <button class="nav-tab" onclick="location.href=mlUrl('/dashboard#dashboard')">Dashboard</button>
-      <button class="nav-tab" onclick="location.href=mlUrl('/dashboard#anuncios')">Anúncios</button>
-      <button class="nav-tab active" onclick="location.href=mlUrl('/dashboard#produtos')">Alterações Massivas</button>
-      <button class="nav-tab" onclick="location.href=mlUrl('/dashboard#ia')">IA & Analytics</button>
-      <button class="nav-tab" onclick="location.href=mlUrl('/dashboard#publicidade')">Publicidade</button>
-      <button class="nav-tab" onclick="location.href=mlUrl('/dashboard#benchmarking')">Benchmarking</button>
-      <button class="nav-tab" onclick="location.href=mlUrl('/dashboard#alertas')">Alertas</button>
-      <button class="nav-tab" onclick="location.href=mlUrl('/dashboard#ml')">ML</button>
-      <button class="nav-tab" onclick="location.href=mlUrl('/full')">FULL</button>
-      <button class="nav-tab" onclick="location.href=mlUrl('/dashboard#admin')">Admin</button>
+      <button class="nav-tab" onclick="location.href='/dashboard#dashboard'">Dashboard</button>
+      <button class="nav-tab" onclick="location.href='/dashboard#anuncios'">Anúncios</button>
+      <button class="nav-tab active" onclick="location.href='/dashboard#produtos'">Alterações Massivas</button>
+      <button class="nav-tab" onclick="location.href='/dashboard#ia'">IA & Analytics</button>
+      <button class="nav-tab" onclick="location.href='/dashboard#publicidade'">Publicidade</button>
+      <button class="nav-tab" onclick="location.href='/dashboard#benchmarking'">Benchmarking</button>
+      <button class="nav-tab" onclick="location.href='/dashboard#alertas'">Alertas</button>
+      <button class="nav-tab" onclick="location.href='/dashboard#ml'">ML</button>
+      <button class="nav-tab" onclick="location.href='/full'">FULL</button>
+      <button class="nav-tab" onclick="location.href='/dashboard#admin'">Admin</button>
     </div>
   </nav>
 
@@ -183,7 +183,7 @@ MLB1122334455" rows="7"></textarea>
 
   async function trocarConta() {
     try { await fetch('/ml/api/account/clear', { method: 'POST' }); }
-    finally { window.location.href=mlUrl('/select-conta'); }
+    finally { window.location.href = '/select-conta'; }
   }
 
   document.addEventListener('DOMContentLoaded', function(){
@@ -202,7 +202,7 @@ MLB1122334455" rows="7"></textarea>
 
   async function verificarToken(updateModal=false) {
     try {
-      const response = await fetch('/verificar-token');
+      const response = await fetch('/ml/api/tokens/verificar-token');
       const data = await response.json();
       if (data.success) {
         if (updateModal) {
@@ -224,7 +224,7 @@ MLB1122334455" rows="7"></textarea>
 
   async function renovarToken(updateModal=false) {
     try {
-      const response = await fetch('/renovar-token-automatico', { method: 'POST' });
+      const response = await fetch('/ml/api/tokens/renovar-token-automatico', { method: 'POST' });
       const data = await response.json();
       if (data.success) {
         if (updateModal) {

@@ -4,25 +4,10 @@ const TokenService = require("../services/tokenService");
 
 // Rotas/métodos que não precisam de token ML (evita refresh desnecessário)
 const SKIP_PATHS = [
-  // ✅ Auth do app (não depende de token ML)
-  /^\/api\/auth(?:\/|$)/i,
-
-  // ✅ Admin (painel do sistema) não pode depender de token ML
-  /^\/api\/admin(?:\/|$)/i,
-  /^\/admin(?:\/|$)/i,
-
-  // ✅ Páginas de escolha/vinculação de conta (não exigem token ML)
-  /^\/select-conta(?:\/|$)/i,
-  /^\/vincular-conta(?:\/|$)/i,
-
   // ✅ OAuth / seleção/vinculação (não precisa token ML)
   // (mais seguro: pula tudo do /api/meli e /api/account)
   /^\/api\/meli(?:\/|$)/i,
   /^\/api\/account(?:\/|$)/i,
-
-  // ✅ Páginas de seleção/vinculação (não exigem token ML)
-  /^\/select-conta(?:\/|$)/i,
-  /^\/vincular-conta(?:\/|$)/i,
 
   // health checks (se você quiser PROTEGER esses também, remova daqui)
   /^\/api\/health(?:\/|$)/i,

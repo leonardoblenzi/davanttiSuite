@@ -192,20 +192,16 @@ module.exports = function createMlApp() {
   // ==========================================
   // ✅ Middlewares “do ML” (depois do authGate)
   // ==========================================
-
-  // ✅ FIX (SÓ ISSO): ensureAccount ANTES do authMiddleware
-  // - ensureAccount injeta res.locals.mlCreds (conta + tokens)
-  // - authMiddleware usa isso pra montar req.ml.accessToken
-  try {
-    app.use(ensureAccount);
-  } catch (e) {
-    console.warn("⚠️ [ML] ensureAccount não aplicado:", e?.message || e);
-  }
-
   try {
     app.use(authMiddleware);
   } catch (e) {
     console.warn("⚠️ [ML] authMiddleware não aplicado:", e?.message || e);
+  }
+
+  try {
+    app.use(ensureAccount);
+  } catch (e) {
+    console.warn("⚠️ [ML] ensureAccount não aplicado:", e?.message || e);
   }
 
   // ✅ aplica ACL só se for middleware válido
@@ -262,9 +258,6 @@ module.exports = function createMlApp() {
   // páginas/HTML do dashboard etc (se existir)
   safeUse("HtmlRoutes", "./routes/htmlRoutes");
 
-  // ✅ Admin (HTML) — serve /admin/* (master-only)
-  safeUse("adminHtmlRoutes", "./routes/adminHtmlRoutes");
-
   // ✅ IMPORTANTÍSSIMO: routers relativos devem ser montados no prefixo correto
   safeUse("accountRoutes", "./routes/accountRoutes", "/api/account");
   safeUse("meliOAuthRoutes", "./routes/meliOAuthRoutes", "/api/meli");
@@ -292,32 +285,15 @@ module.exports = function createMlApp() {
   );
   safeUse("analytics-abc-Routes", "./routes/analytics-abc-Routes");
 
-  // ✅ Admin APIs (MASTER) — todas em /api/admin/*
-  // (os arquivos já definem subpaths como /usuarios, /empresas, etc.)
-  safeUse("adminUsuariosRoutes", "./routes/adminUsuariosRoutes", "/api/admin");
-  safeUse("adminEmpresasRoutes", "./routes/adminEmpresasRoutes", "/api/admin");
-  safeUse("adminVinculosRoutes", "./routes/adminVinculosRoutes", "/api/admin");
-  safeUse(
-    "adminMeliContasRoutes",
-    "./routes/adminMeliContasRoutes",
-    "/api/admin",
-  );
-  safeUse(
-    "adminMeliTokensRoutes",
-    "./routes/adminMeliTokensRoutes",
-    "/api/admin",
-  );
-  safeUse(
-    "adminOAuthStatesRoutes",
-    "./routes/adminOAuthStatesRoutes",
-    "/api/admin",
-  );
-  safeUse(
-    "adminMigracoesRoutes",
-    "./routes/adminMigracoesRoutes",
-    "/api/admin",
-  );
-  safeUse("adminBackupRoutes", "./routes/adminBackupRoutes", "/api/admin");
+  // Admin
+  safeUse("adminUsuariosRoutes", "./routes/adminUsuariosRoutes");
+  safeUse("adminEmpresasRoutes", "./routes/adminEmpresasRoutes");
+  safeUse("adminVinculosRoutes", "./routes/adminVinculosRoutes");
+  safeUse("adminMeliContasRoutes", "./routes/adminMeliContasRoutes");
+  safeUse("adminMeliTokensRoutes", "./routes/adminMeliTokensRoutes");
+  safeUse("adminOAuthStatesRoutes", "./routes/adminOAuthStatesRoutes");
+  safeUse("adminMigracoesRoutes", "./routes/adminMigracoesRoutes");
+  safeUse("adminBackupRoutes", "./routes/adminBackupRoutes");
 
   // ==========================================
   // ERRORS (mantém)

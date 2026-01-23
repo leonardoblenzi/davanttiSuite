@@ -72,7 +72,10 @@
 
   async function verificarToken(updateModal = false) {
     try {
-      const response = await fetch('/verificar-token');
+      const response = await fetch(U('/api/tokens/verificar-token'), {
+        credentials: 'include',
+        cache: 'no-store',
+      });
       const data = await response.json();
       if (data.success) {
         if (updateModal) {
@@ -103,8 +106,9 @@
 
   async function renovarToken(updateModal = false) {
     try {
-      const response = await fetch('/renovar-token-automatico', {
+      const response = await fetch(U('/api/tokens/renovar-token-automatico'), {
         method: 'POST',
+        credentials: 'include',
       });
       const data = await response.json();
       if (data.success) {

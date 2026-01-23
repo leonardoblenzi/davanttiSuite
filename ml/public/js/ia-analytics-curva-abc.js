@@ -269,7 +269,7 @@
     if (btnStatus) {
       btnStatus.addEventListener("click", async () => {
         try {
-          const r = await fetch("/verificar-token", {
+          const r = await fetch("/ml/api/tokens/verificar-token", {
             credentials: "include",
             cache: "no-store",
           });

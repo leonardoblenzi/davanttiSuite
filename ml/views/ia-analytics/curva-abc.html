@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <title>IA & Analytics — Curva ABC</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <link rel="stylesheet" href="/ml/css/dashboard.css">
-  <link rel="stylesheet" href="/ml/css/curva-abc.css">
+  <link rel="stylesheet" href="/css/dashboard.css">
+  <link rel="stylesheet" href="/css/curva-abc.css">
 </head>
 <body class="curva-abc">
   <header class="account-bar">
@@ -35,15 +35,15 @@
   <!-- navegacao com abas-->
 <nav class="main-nav">
   <div class="tabs">
-    <button class="nav-tab" onclick="location.href=mlUrl('/dashboard#dashboard')">Dashboard</button>
-    <button class="nav-tab" onclick="location.href=mlUrl('/dashboard#produtos')">Produtos</button>
-    <button class="nav-tab active" onclick="location.href=mlUrl('/dashboard#ia')">IA & Analytics</button>
-    <button class="nav-tab" onclick="location.href=mlUrl('/dashboard#publicidade')">Publicidade</button>
-    <button class="nav-tab" onclick="location.href=mlUrl('/dashboard#benchmarking')">Benchmarking</button>
-    <button class="nav-tab" onclick="location.href=mlUrl('/dashboard#alertas')">Alertas</button>
-    <button class="nav-tab" onclick="location.href=mlUrl('/dashboard#ml')">ML</button>
-    <button class="nav-tab" onclick="location.href=mlUrl('/dashboard#full')">FULL</button>
-    <button class="nav-tab" onclick="location.href=mlUrl('/dashboard#admin')">Admin</button>
+    <button class="nav-tab" onclick="location.href='/dashboard#dashboard'">Dashboard</button>
+    <button class="nav-tab" onclick="location.href='/dashboard#produtos'">Produtos</button>
+    <button class="nav-tab active" onclick="location.href='/dashboard#ia'">IA & Analytics</button>
+    <button class="nav-tab" onclick="location.href='/dashboard#publicidade'">Publicidade</button>
+    <button class="nav-tab" onclick="location.href='/dashboard#benchmarking'">Benchmarking</button>
+    <button class="nav-tab" onclick="location.href='/dashboard#alertas'">Alertas</button>
+    <button class="nav-tab" onclick="location.href='/dashboard#ml'">ML</button>
+    <button class="nav-tab" onclick="location.href='/dashboard#full'">FULL</button>
+    <button class="nav-tab" onclick="location.href='/dashboard#admin'">Admin</button>
   </div>
 </nav>
 
@@ -237,8 +237,6 @@
   <ul id="abcProgressLog" class="abc-progress__log"></ul>
 </div>
 
-  <script src="/ml/js/ml-base.js"></script>
-  <script src="/ml/js/account-bar.js" defer></script>
-  <script src="/ml/js/ia-analytics-curva-abc.js" defer></script>
+  <script src="/ml/js/ia-analytics-curva-abc.js"></script>
 </body>
 </html>
