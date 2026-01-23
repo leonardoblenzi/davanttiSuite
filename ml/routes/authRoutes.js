@@ -18,20 +18,21 @@ const isProd =
   String(process.env.NODE_ENV || "").toLowerCase() === "production";
 
 // ✅ Permite bloquear login do nível "usuario" via ENV
-// - true (default): permite login de "usuario"
-// - false: bloqueia login de "usuario"
 const ALLOW_USER_LOGIN =
   String(process.env.ALLOW_USER_LOGIN ?? "true").toLowerCase() === "true";
 
-// ✅ Importante em ambientes com múltiplos schemas (suite):
-// Se existir outra tabela "usuarios" em outro schema (ex: schema ml),
-// o Postgres pode resolver a tabela errada via search_path e o login vira 401.
-// Para evitar isso, qualificamos as tabelas com schema explícito.
-// Você pode mudar via ENV AUTH_DB_SCHEMA, mas por padrão usamos "public".
+// ✅ SCHEMA CORRETO:
+// Seus dados estão em ml.* (ml.usuarios, ml.empresas, etc).
+// Então o default PRECISA ser ml, e não public.
 const AUTH_SCHEMA =
-  String(process.env.AUTH_DB_SCHEMA || "public")
+  String(
+    process.env.AUTH_DB_SCHEMA ||
+      process.env.ML_DB_SCHEMA ||
+      db.ML_DB_SCHEMA ||
+      "ml",
+  )
     .trim()
-    .replace(/[^a-zA-Z0-9_]/g, "") || "public";
+    .replace(/[^a-zA-Z0-9_]/g, "") || "ml";
 
 function T(name) {
   return `${AUTH_SCHEMA}.${name}`;
@@ -101,23 +102,20 @@ router.post("/register", express.json({ limit: "1mb" }), async (req, res) => {
   const empresa_nome = String(req.body?.empresa_nome || "").trim();
 
   if (!email || !senha || !empresa_nome) {
-    return res.status(400).json({
-      ok: false,
-      error: "Informe email, senha e nome da empresa.",
-    });
+    return res
+      .status(400)
+      .json({ ok: false, error: "Informe email, senha e nome da empresa." });
   }
 
   if (senha.length < 6) {
-    return res.status(400).json({
-      ok: false,
-      error: "A senha deve ter no mínimo 6 caracteres.",
-    });
+    return res
+      .status(400)
+      .json({ ok: false, error: "A senha deve ter no mínimo 6 caracteres." });
   }
 
   try {
     const result = await db.withClient(async (client) => {
       await client.query("begin");
-
       try {
         const senha_hash = await bcrypt.hash(senha, 10);
 
@@ -248,17 +246,10 @@ router.post("/login", express.json({ limit: "200kb" }), async (req, res) => {
 
     res.cookie("auth_token", token, cookieOptions());
 
-    const redirect = withBase(req, "/select-conta");
-
     return res.json({
       ok: true,
-      user: {
-        id: user.id,
-        nome: user.nome,
-        email: user.email,
-        nivel,
-      },
-      redirect,
+      user: { id: user.id, nome: user.nome, email: user.email, nivel },
+      redirect: withBase(req, "/select-conta"),
     });
   } catch (err) {
     console.error("POST /api/auth/login erro:", err);
@@ -272,11 +263,7 @@ router.post("/login", express.json({ limit: "200kb" }), async (req, res) => {
 // POST /api/auth/logout
 // =====================
 router.post("/logout", (_req, res) => {
-  res.clearCookie("auth_token", {
-    path: "/",
-    sameSite: "lax",
-    secure: isProd,
-  });
+  res.clearCookie("auth_token", { path: "/", sameSite: "lax", secure: isProd });
   return res.json({ ok: true });
 });
 
@@ -289,7 +276,6 @@ router.get("/me", (req, res) => {
     if (!token) return res.json({ ok: true, logged: false });
 
     const payload = jwt.verify(token, JWT_SECRET);
-
     const nivel = normalizeNivel(payload?.nivel);
 
     const _is_admin = isAdmin(nivel);
