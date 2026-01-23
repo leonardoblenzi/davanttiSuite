@@ -21,16 +21,12 @@ const isProd =
 const ALLOW_USER_LOGIN =
   String(process.env.ALLOW_USER_LOGIN ?? "true").toLowerCase() === "true";
 
-// ✅ SCHEMA CORRETO:
-// Seus dados estão em ml.* (ml.usuarios, ml.empresas, etc).
-// Então o default PRECISA ser ml, e não public.
+// ✅ SCHEMA CERTO PARA AUTH
+// - Seu banco/tabelas estão em ml.*
+// - Se você quiser forçar outro schema, use AUTH_DB_SCHEMA no Render.
+// - Por padrão: usa ML_DB_SCHEMA (do db.js) e cai em "ml".
 const AUTH_SCHEMA =
-  String(
-    process.env.AUTH_DB_SCHEMA ||
-      process.env.ML_DB_SCHEMA ||
-      db.ML_DB_SCHEMA ||
-      "ml",
-  )
+  String(process.env.AUTH_DB_SCHEMA || db.ML_DB_SCHEMA || "ml")
     .trim()
     .replace(/[^a-zA-Z0-9_]/g, "") || "ml";
 
@@ -106,7 +102,6 @@ router.post("/register", express.json({ limit: "1mb" }), async (req, res) => {
       .status(400)
       .json({ ok: false, error: "Informe email, senha e nome da empresa." });
   }
-
   if (senha.length < 6) {
     return res
       .status(400)

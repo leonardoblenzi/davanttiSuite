@@ -37,7 +37,6 @@ function extractSearchPathFromUrl(connString) {
     if (!opts) return null;
 
     const decoded = decodeURIComponent(String(opts).replace(/\+/g, "%20"));
-    // "-c search_path=ml,public"  ou  "-c search_path=ml,public -c ... "
     const m = decoded.match(/search_path\s*=\s*([^\s]+)/i);
     return m ? String(m[1]).trim() : null;
   } catch {
@@ -58,7 +57,8 @@ function sanitizeSearchPath(raw) {
   const dedup = [];
   for (const s of list) if (!dedup.includes(s)) dedup.push(s);
 
-  // garante public por último
+  // garante public no fim
+  if (!dedup.includes("public")) dedup.push("public");
   const withoutPublic = dedup.filter((s) => s !== "public");
   return [...withoutPublic, "public"].join(", ");
 }
@@ -73,10 +73,21 @@ const ENV_SP_RAW = process.env.ML_DB_SEARCH_PATH;
 
 const EXPLICIT_SP = sanitizeSearchPath(ENV_SP_RAW || URL_SP_RAW);
 
-// default: ml, public
+const SEARCH_PATH_MODE = String(
+  process.env.ML_DB_SEARCH_PATH_MODE || "ml_first",
+)
+  .trim()
+  .toLowerCase();
+
 function buildSearchPath() {
   if (EXPLICIT_SP) return EXPLICIT_SP;
+
   const schema = safeSchemaName(ML_DB_SCHEMA, "ml");
+
+  if (SEARCH_PATH_MODE === "public_first") {
+    return `public, ${schema}`;
+  }
+
   if (schema === "public") return "public";
   return `${schema}, public`;
 }
@@ -98,7 +109,7 @@ pool.on("error", (err) => {
   console.error("❌ [ML][DB] Postgres pool error:", err);
 });
 
-// ✅ Garante search_path em toda nova conexão
+// ✅ garante search_path em toda conexão
 pool.on("connect", async (client) => {
   try {
     await client.query(`set search_path to ${SEARCH_PATH};`);
