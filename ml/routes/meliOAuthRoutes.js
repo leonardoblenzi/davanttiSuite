@@ -43,12 +43,38 @@ const COOKIE_MELI_CONTA = "meli_conta_id";
 const isProd =
   String(process.env.NODE_ENV || "").toLowerCase() === "production";
 
-// Em produção (Render), você está com trust proxy = 1, então secure funciona
-function cookieOptions() {
+// -------------------------
+// Helpers: base path (suite /ml vs standalone /)
+// -------------------------
+function mountBase(req) {
+  // Quando este router está montado dentro do app ML em /ml,
+  // aqui o req.baseUrl tende a vir como '/ml/api/meli'.
+  // Queremos apenas o prefixo '/ml' (ou '' no modo standalone).
+  const b = String(req.baseUrl || "");
+  const i = b.indexOf("/api/");
+  if (i >= 0) return b.slice(0, i) || "";
+  return b;
+}
+
+function withBase(req, p) {
+  const base = mountBase(req);
+  if (!p) return base || "/";
+  if (/^https?:\/\//i.test(p)) return p;
+  const path = p.startsWith("/") ? p : `/${p}`;
+  // evita duplicar base
+  if (base && (path === base || path.startsWith(base + "/"))) return path;
+  return base + path;
+}
+
+// Em produção (Render), você está com trust proxy = 1.
+// Mas para dev/local (http), não queremos bloquear o Set-Cookie por Secure.
+function cookieOptions(req) {
+  const xfProto = String(req.headers["x-forwarded-proto"] || "").toLowerCase();
+  const isHttps = !!req.secure || xfProto === "https";
   return {
     httpOnly: true,
     sameSite: "lax",
-    secure: isProd,
+    secure: isProd ? isHttps : false,
     maxAge: 30 * 24 * 3600 * 1000, // 30 dias
     path: "/",
   };
@@ -342,6 +368,28 @@ router.get("/contas", async (req, res) => {
 });
 
 // ===============================
+// ✅ GET /api/meli/selecionar?meli_conta_id=123
+// Fluxo via navegação (mais robusto que fetch em alguns cenários):
+// - seta cookie
+// - redireciona para /dashboard
+router.get("/selecionar", async (req, res) => {
+  const raw = req.query?.meli_conta_id;
+  const meli_conta_id = Number(raw);
+  if (!Number.isFinite(meli_conta_id) || meli_conta_id <= 0) {
+    return res.status(400).json({
+      ok: false,
+      error: "meli_conta_id inválido",
+    });
+  }
+
+  // seta cookie da conta atual
+  res.cookie(COOKIE_MELI_CONTA, String(meli_conta_id), cookieOptions(req));
+
+  // redireciona para o dashboard respeitando o base (/ml)
+  const target = withBase(req, "/dashboard");
+  return res.redirect(target);
+});
+
 // POST /api/meli/selecionar
 // body: { meli_conta_id }
 // - Usuário normal/admin: só seleciona conta da própria empresa
@@ -405,7 +453,7 @@ router.post(
         );
       } catch (_) {}
 
-      res.cookie(COOKIE_MELI_CONTA, String(meli_conta_id), cookieOptions());
+      res.cookie(COOKIE_MELI_CONTA, String(meli_conta_id), cookieOptions(req));
       return res.json({ ok: true, meli_conta_id });
     } catch (e) {
       console.error("POST /api/meli/selecionar erro:", e?.message || e);
@@ -673,7 +721,7 @@ router.get("/oauth/callback", async (req, res) => {
     // ✅ já seleciona a conta recém vinculada
     try {
       if (outcome?.contaId) {
-        res.cookie(COOKIE_MELI_CONTA, String(outcome.contaId), cookieOptions());
+        res.cookie(COOKIE_MELI_CONTA, String(outcome.contaId), cookieOptions(req));
       }
     } catch (_) {}
 

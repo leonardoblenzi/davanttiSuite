@@ -471,6 +471,7 @@
           <button
             class="acc-btn"
             data-id="${sanitize(c.id)}"
+            type="button"
             style="${isCurrent ? "outline:2px solid rgba(255,230,0,.7);" : ""}"
           >
             ${title}
@@ -491,11 +492,14 @@
       .join("");
 
     [...elList.querySelectorAll(".acc-btn")].forEach((btn) => {
-      btn.addEventListener("click", async () => {
+      btn.addEventListener("click", () => {
         const id = Number(btn.getAttribute("data-id"));
         if (!Number.isFinite(id)) return;
         clearAlert();
-        await selecionarContaOAuth(id);
+
+        // ✅ Fluxo via navegação (GET): seta cookie e redireciona server-side.
+        // É mais robusto em ambientes com proxy/SSL.
+        window.location.href = U(`/api/meli/selecionar?meli_conta_id=${encodeURIComponent(String(id))}`);
       });
     });
   }
