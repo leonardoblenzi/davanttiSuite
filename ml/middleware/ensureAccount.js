@@ -124,6 +124,8 @@ function deny(
 }
 
 function clearOAuthCookie(res) {
+  // ✅ limpa possíveis versões antigas do cookie (path "/ml" vs "/")
+  res.clearCookie(COOKIE_OAUTH, { path: "/ml" });
   res.clearCookie(COOKIE_OAUTH, { path: "/" });
 }
 

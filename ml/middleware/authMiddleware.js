@@ -9,6 +9,14 @@ const SKIP_PATHS = [
   /^\/admin(?:\/|$)/i,
   /^\/api\/admin(?:\/|$)/i,
 
+  // ✅ Páginas públicas / escolha de conta (não precisa token ML)
+  /^\/login(?:\/|$)/i,
+  /^\/cadastro(?:\/|$)/i,
+  /^\/selecao-plataforma(?:\/|$)/i,
+  /^\/nao-autorizado(?:\/|$)/i,
+  /^\/select-conta(?:\/|$)/i,
+  /^\/vincular-conta(?:\/|$)/i,
+
   // ✅ OAuth / seleção/vinculação (não precisa token ML)
   // (mais seguro: pula tudo do /api/meli e /api/account)
   /^\/api\/meli(?:\/|$)/i,
