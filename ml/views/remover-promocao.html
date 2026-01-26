@@ -38,16 +38,16 @@
 <!-- NAV TABS -->
   <nav class="main-nav">
     <div class="tabs">
-      <button class="nav-tab" onclick="location.href='/ml/dashboard#dashboard'">Dashboard</button>
-      <button class="nav-tab" onclick="location.href='/ml/dashboard#anuncios'">Anúncios</button>
-      <button class="nav-tab  active" onclick="location.href='/ml/dashboard#produtos'">Alterações Massivas</button>
-      <button class="nav-tab" onclick="location.href='/ml/dashboard#ia'">IA & Analytics</button>
-      <button class="nav-tab" onclick="location.href='/ml/dashboard#publicidade'">Publicidade</button>
-      <button class="nav-tab" onclick="location.href='/ml/dashboard#benchmarking'">Benchmarking</button>
-      <button class="nav-tab" onclick="location.href='/ml/dashboard#alertas'">Alertas</button>
-      <button class="nav-tab" onclick="location.href='/ml/dashboard#ml'">ML</button>
+      <button class="nav-tab" onclick="location.href=mlUrl('/dashboard#dashboard')">Dashboard</button>
+      <button class="nav-tab" onclick="location.href=mlUrl('/dashboard#anuncios')">Anúncios</button>
+      <button class="nav-tab  active" onclick="location.href=mlUrl('/dashboard#produtos')">Alterações Massivas</button>
+      <button class="nav-tab" onclick="location.href=mlUrl('/dashboard#ia')">IA & Analytics</button>
+      <button class="nav-tab" onclick="location.href=mlUrl('/dashboard#publicidade')">Publicidade</button>
+      <button class="nav-tab" onclick="location.href=mlUrl('/dashboard#benchmarking')">Benchmarking</button>
+      <button class="nav-tab" onclick="location.href=mlUrl('/dashboard#alertas')">Alertas</button>
+      <button class="nav-tab" onclick="location.href=mlUrl('/dashboard#ml')">ML</button>
       <button class="nav-tab" onclick="location.href='/full'">FULL</button>
-      <button class="nav-tab" onclick="location.href='/ml/dashboard#admin'">Admin</button>
+      <button class="nav-tab" onclick="location.href=mlUrl('/dashboard#admin')">Admin</button>
     </div>
   </nav>
 
@@ -126,7 +126,7 @@ MLB1122334455" rows="6"></textarea>
         resultado.innerHTML = '<div class="result info">🔄 Removendo promoção...</div>';
 
         try {
-          const response = await fetch('/ml/anuncio/remover-promocao', {
+          const response = await fetch('/anuncio/remover-promocao', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ mlb_id: mlbId })
@@ -193,7 +193,7 @@ MLB1122334455" rows="6"></textarea>
           } catch (e) {
             // Fallback legado
             try {
-              const response = await fetch('/ml/anuncios/remover-promocoes-lote', {
+              const response = await fetch('/anuncios/remover-promocoes-lote', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ mlb_ids: mlbIds, delay_entre_remocoes: 3000 })
@@ -216,7 +216,7 @@ MLB1122334455" rows="6"></textarea>
 
         // Painel indisponível → 100% legado
         try {
-          const response = await fetch('/ml/anuncios/remover-promocoes-lote', {
+          const response = await fetch('/anuncios/remover-promocoes-lote', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ mlb_ids: mlbIds, delay_entre_remocoes: 3000 })
@@ -239,7 +239,7 @@ MLB1122334455" rows="6"></textarea>
       async function verificarStatus() {
         if (!currentProcessId) { alert('Nenhum processamento ativo (legado).'); return; }
         try {
-          const response = await fetch('/ml/anuncios/status-remocao/' + currentProcessId);
+          const response = await fetch('/anuncios/status-remocao/' + currentProcessId);
           const data = await response.json();
           const resultado = document.getElementById('resultado');
           const concluido = data.status === 'concluido'
@@ -265,7 +265,7 @@ MLB1122334455" rows="6"></textarea>
         if (monitorInterval) clearInterval(monitorInterval);
         monitorInterval = setInterval(async () => {
           try {
-            const response = await fetch('/ml/anuncios/status-remocao/' + processId);
+            const response = await fetch('/anuncios/status-remocao/' + processId);
             const data = await response.json();
             if (data.status === 'concluido' || data.status === 'erro') {
               clearInterval(monitorInterval);
@@ -330,7 +330,7 @@ MLB1122334455" rows="6"></textarea>
   }
   async function trocarConta() {
     try { await fetch('/ml/api/account/clear', { method: 'POST' }); }
-    finally { window.location.href='/ml/select-conta'; }
+    finally { window.location.href = '/select-conta'; }
   }
   document.addEventListener('DOMContentLoaded', function(){
     carregarContaAtual();

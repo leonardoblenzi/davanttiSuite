@@ -110,11 +110,114 @@ router.get("/full", noCache, (_req, res) => {
   res.sendFile(path.join(__dirname, "..", "views", "full.html"));
 });
 
+
+// ===========================
+// ✅ Páginas HTML que antes colidiam com rotas de API (agora separadas)
+// ===========================
+
+// Publicidade (HTML)
+router.get("/publicidade", noCache, (_req, res) => {
+  res.sendFile(path.join(__dirname, "..", "views", "publicidade.html"));
+});
+
+// Pesquisa em Descrições (HTML)
+router.get("/pesquisa-descricao", noCache, (_req, res) => {
+  res.sendFile(path.join(__dirname, "..", "views", "pesquisa-descricao.html"));
+});
+
+// Validar Dimensões (HTML)
+router.get("/validar-dimensoes", noCache, (_req, res) => {
+  res.sendFile(path.join(__dirname, "..", "views", "validar-dimensoes.html"));
+});
+
+// Keyword Analytics (HTML)
+router.get("/keyword-analytics", noCache, (_req, res) => {
+  res.sendFile(path.join(__dirname, "..", "views", "keyword-analytics.html"));
+});
+
 // Curva ABC (HTML)
 router.get("/ia-analytics/curva-abc", noCache, (_req, res) => {
   res.sendFile(
     path.join(__dirname, "..", "views", "ia-analytics", "curva-abc.html")
   );
 });
+
+
+// ===========================
+// ✅ Painel Admin (HTML)
+// (as APIs ficam em /api/admin/*; aqui são só as telas)
+// ===========================
+router.get(
+  "/admin/usuarios",
+  noCache,
+  ensurePermission.requireAdmin(),
+  (_req, res) => res.sendFile(path.join(__dirname, "..", "views", "admin-usuarios.html"))
+);
+
+router.get(
+  "/admin/empresas",
+  noCache,
+  ensurePermission.requireAdmin(),
+  (_req, res) => res.sendFile(path.join(__dirname, "..", "views", "admin-empresas.html"))
+);
+
+router.get(
+  "/admin/vinculos",
+  noCache,
+  ensurePermission.requireAdmin(),
+  (_req, res) => res.sendFile(path.join(__dirname, "..", "views", "admin-vinculos.html"))
+);
+
+// Aliases “contas-ml / tokens-ml” (pra compat com seus links)
+router.get(
+  "/admin/contas-ml",
+  noCache,
+  ensurePermission.requireAdmin(),
+  (_req, res) => res.sendFile(path.join(__dirname, "..", "views", "admin-meli-contas.html"))
+);
+
+router.get(
+  "/admin/tokens-ml",
+  noCache,
+  ensurePermission.requireAdmin(),
+  (_req, res) => res.sendFile(path.join(__dirname, "..", "views", "admin-meli-tokens.html"))
+);
+
+// (Opcional) aliases mais “técnicos”
+router.get(
+  "/admin/meli-contas",
+  noCache,
+  ensurePermission.requireAdmin(),
+  (_req, res) => res.sendFile(path.join(__dirname, "..", "views", "admin-meli-contas.html"))
+);
+
+router.get(
+  "/admin/meli-tokens",
+  noCache,
+  ensurePermission.requireAdmin(),
+  (_req, res) => res.sendFile(path.join(__dirname, "..", "views", "admin-meli-tokens.html"))
+);
+
+router.get(
+  "/admin/oauth-states",
+  noCache,
+  ensurePermission.requireAdmin(),
+  (_req, res) => res.sendFile(path.join(__dirname, "..", "views", "admin-oauth-states.html"))
+);
+
+router.get(
+  "/admin/migracoes",
+  noCache,
+  ensurePermission.requireAdmin(),
+  (_req, res) => res.sendFile(path.join(__dirname, "..", "views", "admin-migracoes.html"))
+);
+
+router.get(
+  "/admin/backup",
+  noCache,
+  ensurePermission.requireAdmin(),
+  (_req, res) => res.sendFile(path.join(__dirname, "..", "views", "admin-backup.html"))
+);
+
 
 module.exports = router;

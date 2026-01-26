@@ -186,22 +186,17 @@ module.exports = function createMlApp() {
 
   // ==========================================
   // ✅ Middlewares “do ML” (depois do authGate)
-  //
-  // ORDEM IMPORTA:
-  // - ensureAccount injeta res.locals.mlCreds (conta + tokens) a partir do cookie meli_conta_id
-  // - authMiddleware depende de mlCreds para validar/renovar token e bloquear rotas que exigem token
-  // Se inverter, o dashboard/admin podem ficar presos em redirect/401 mesmo com conta selecionada.
   // ==========================================
-  try {
-    app.use(ensureAccount);
-  } catch (e) {
-    console.warn("⚠️ [ML] ensureAccount não aplicado:", e?.message || e);
-  }
-
   try {
     app.use(authMiddleware);
   } catch (e) {
     console.warn("⚠️ [ML] authMiddleware não aplicado:", e?.message || e);
+  }
+
+  try {
+    app.use(ensureAccount);
+  } catch (e) {
+    console.warn("⚠️ [ML] ensureAccount não aplicado:", e?.message || e);
   }
 
   // ==========================================
@@ -325,34 +320,31 @@ module.exports = function createMlApp() {
 
   // demais (mantém)
   safeUse("itemsRoutes", "./routes/itemsRoutes");
-  safeUse("editarAnuncioRoutes", "./routes/editarAnuncioRoutes");
-  safeUse("excluirAnuncioRoutes", "./routes/excluirAnuncioRoutes");
-  safeUse("jardinagemRoutes", "./routes/jardinagemRoutes");
+  safeUse("editarAnuncioRoutes", "./routes/editarAnuncioRoutes", "/api/editar-anuncio");
+  safeUse("excluirAnuncioRoutes", "./routes/excluirAnuncioRoutes", "/api/excluir-anuncio");
+  safeUse("jardinagemRoutes", "./routes/jardinagemRoutes", "/api/jardinagem");
   safeUse("promocoesRoutes", "./routes/promocoesRoutes");
   safeUse("removerPromocaoRoutes", "./routes/removerPromocaoRoutes");
-  safeUse("publicidadeRoutes", "./routes/publicidadeRoutes");
+  safeUse("publicidadeRoutes", "./routes/publicidadeRoutes", "/api/publicidade");
   safeUse("estrategicosRoutes", "./routes/estrategicosRoutes");
-  safeUse("fullRoutes", "./routes/fullRoutes");
+  safeUse("fullRoutes", "./routes/fullRoutes", "/api/full");
   safeUse("AnaliseAnuncioRoutes", "./routes/AnaliseAnuncioRoutes");
-  safeUse("pesquisaDescricaoRoutes", "./routes/pesquisaDescricaoRoutes");
+  safeUse("pesquisaDescricaoRoutes", "./routes/pesquisaDescricaoRoutes", "/api/pesquisa-descricao");
   safeUse("PrazoProducaoRoutes", "./routes/prazoProducaoRoutes");
   safeUse("keywordAnalyticsRoutes", "./routes/keywordAnalyticsRoutes");
-  safeUse("ValidarDimensoesRoutes", "./routes/validarDimensoesRoutes");
-  safeUse(
-    "analytics-filtro-anuncios-routes",
-    "./routes/analytics-filtro-anuncios-routes",
-  );
-  safeUse("analytics-abc-Routes", "./routes/analytics-abc-Routes");
+  safeUse("ValidarDimensoesRoutes", "./routes/validarDimensoesRoutes", "/api/validar-dimensoes");
+  safeUse("analytics-filtro-anuncios-routes", "./routes/analytics-filtro-anuncios-routes", "/api/analytics");
+  safeUse("analytics-abc-Routes", "./routes/analytics-abc-Routes", "/api/analytics");
 
   // Admin APIs
-  safeUse("adminUsuariosRoutes", "./routes/adminUsuariosRoutes");
-  safeUse("adminEmpresasRoutes", "./routes/adminEmpresasRoutes");
-  safeUse("adminVinculosRoutes", "./routes/adminVinculosRoutes");
-  safeUse("adminMeliContasRoutes", "./routes/adminMeliContasRoutes");
-  safeUse("adminMeliTokensRoutes", "./routes/adminMeliTokensRoutes");
-  safeUse("adminOAuthStatesRoutes", "./routes/adminOAuthStatesRoutes");
-  safeUse("adminMigracoesRoutes", "./routes/adminMigracoesRoutes");
-  safeUse("adminBackupRoutes", "./routes/adminBackupRoutes");
+  safeUse("adminUsuariosRoutes", "./routes/adminUsuariosRoutes", "/api/admin");
+  safeUse("adminEmpresasRoutes", "./routes/adminEmpresasRoutes", "/api/admin");
+  safeUse("adminVinculosRoutes", "./routes/adminVinculosRoutes", "/api/admin");
+  safeUse("adminMeliContasRoutes", "./routes/adminMeliContasRoutes", "/api/admin");
+  safeUse("adminMeliTokensRoutes", "./routes/adminMeliTokensRoutes", "/api/admin");
+  safeUse("adminOAuthStatesRoutes", "./routes/adminOAuthStatesRoutes", "/api/admin");
+  safeUse("adminMigracoesRoutes", "./routes/adminMigracoesRoutes", "/api/admin");
+  safeUse("adminBackupRoutes", "./routes/adminBackupRoutes", "/api/admin");
 
   // ==========================================
   // ERRORS (mantém)
