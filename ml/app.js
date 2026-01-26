@@ -5,12 +5,34 @@ const express = require("express");
 const path = require("path");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
-const jwt = require("jsonwebtoken");
 
 // Middlewares próprios
 const ensureAccount = require("./middleware/ensureAccount");
 const { authMiddleware } = require("./middleware/authMiddleware");
 const { ensureAuth } = require("./middleware/ensureAuth");
+
+// ⚠️ cuidado: no teu log apareceu "app.use() requires a middleware function"
+// então eu vou carregar ensurePermission de forma segura.
+let ensurePermission = null;
+let requireMasterMW = null;
+try {
+  // Pode ser que o arquivo exporte { ensurePermission } ao invés do default.
+  const mod = require("./middleware/ensurePermission");
+  ensurePermission = typeof mod === "function" ? mod : mod?.ensurePermission;
+
+  // ✅ precisa existir para rotas/páginas admin (master)
+  if (typeof mod?.requireMaster === "function") {
+    requireMasterMW = mod.requireMaster();
+  }
+} catch (_e) {
+  ensurePermission = null;
+  requireMasterMW = null;
+}
+
+// Fallback seguro se o middleware não estiver disponível
+if (typeof requireMasterMW !== "function") {
+  requireMasterMW = (_req, _res, next) => next();
+}
 
 // Bootstrap MASTER (idempotente)
 const { ensureMasterUser } = require("./services/bootstrapMaster");
@@ -72,14 +94,8 @@ module.exports = function createMlApp() {
   }
 
   // ==================================================
-  // Helpers baseUrl (suite /ml vs standalone)
-  // ==================================================
-  function getBase(req) {
-    return String(req.baseUrl || "");
-  }
-
-  // ==================================================
   // ✅ Auth Routes públicas
+  // (mantém em /api/auth, porque na SUITE /ml/api/auth chega aqui como /api/auth)
   // ==================================================
   try {
     if (!(process.env.ML_JWT_SECRET || process.env.JWT_SECRET)) {
@@ -103,7 +119,8 @@ module.exports = function createMlApp() {
     if (p === "/cadastro") return true;
     if (p === "/selecao-plataforma") return true;
 
-    // ✅ acessíveis pós-login sem conta selecionada
+    // ✅ estas páginas precisam ser acessíveis após login, mas sem “conta selecionada”
+    // (quem controla isso é ensureAccount, que já tem OPEN_PREFIXES)
     if (p === "/select-conta") return true;
     if (p === "/vincular-conta") return true;
 
@@ -140,11 +157,10 @@ module.exports = function createMlApp() {
   console.log("✅ [ML] AuthGate aplicado");
 
   // ==================================================
-  // ✅ Rotas de páginas PÚBLICAS (HTML)
-  // (essas NÃO devem exigir conta selecionada)
+  // ✅ Rotas de páginas (HTML)
   // ==================================================
   app.get("/", noCache, (req, res) => {
-    const base = getBase(req);
+    const base = req.baseUrl || ""; // ✅ funciona quando montado em /ml
     if (req.cookies?.auth_token) {
       return ensureAuth(req, res, () => res.redirect(base + "/dashboard"));
     }
@@ -170,6 +186,7 @@ module.exports = function createMlApp() {
     return res.sendFile(path.join(__dirname, "views", "cadastro.html"));
   });
 
+  // ✅ ESSAS DUAS ESTAVAM FALTANDO (por isso dava 404)
   app.get("/select-conta", noCache, (_req, res) => {
     return res.sendFile(path.join(__dirname, "views", "select-conta.html"));
   });
@@ -183,6 +200,64 @@ module.exports = function createMlApp() {
       .status(403)
       .sendFile(path.join(__dirname, "views", "nao-autorizado.html"));
   });
+
+  // ==================================================
+  // ✅ Admin HTML (MASTER only)
+  // IMPORTANTE: no projeto original, estas páginas existem e são acessadas via /admin/*.
+  // Aqui, como o app ML é montado em /ml na Suite, o caminho vira /ml/admin/* automaticamente.
+  // ==================================================
+  function sendView(file) {
+    return (_req, res) => res.sendFile(path.join(__dirname, "views", file));
+  }
+
+  app.get(
+    "/admin/usuarios",
+    noCache,
+    requireMasterMW,
+    sendView("admin-usuarios.html"),
+  );
+  app.get(
+    "/admin/empresas",
+    noCache,
+    requireMasterMW,
+    sendView("admin-empresas.html"),
+  );
+  app.get(
+    "/admin/vinculos",
+    noCache,
+    requireMasterMW,
+    sendView("admin-vinculos.html"),
+  );
+  app.get(
+    "/admin/contas",
+    noCache,
+    requireMasterMW,
+    sendView("admin-contas.html"),
+  );
+  app.get(
+    "/admin/tokens",
+    noCache,
+    requireMasterMW,
+    sendView("admin-tokens.html"),
+  );
+  app.get(
+    "/admin/oauth-states",
+    noCache,
+    requireMasterMW,
+    sendView("admin-oauth-states.html"),
+  );
+  app.get(
+    "/admin/migracoes",
+    noCache,
+    requireMasterMW,
+    sendView("admin-migracoes.html"),
+  );
+  app.get(
+    "/admin/backup",
+    noCache,
+    requireMasterMW,
+    sendView("admin-backup.html"),
+  );
 
   // ==========================================
   // ✅ Middlewares “do ML” (depois do authGate)
@@ -199,91 +274,32 @@ module.exports = function createMlApp() {
     console.warn("⚠️ [ML] ensureAccount não aplicado:", e?.message || e);
   }
 
+  // ✅ aplica ACL só se for middleware válido
+  if (typeof ensurePermission === "function") {
+    app.use(ensurePermission);
+  } else {
+    console.warn("⚠️ [ML] ensurePermission não aplicado: export inválido");
+  }
+
   // ==========================================
-  // ✅ Gate de ADMIN (HTML)
-  // (isso resolve: master loga, mas não consegue abrir /admin/*)
+  // INICIALIZAR FILAS
   // ==========================================
-  const JWT_SECRET = process.env.ML_JWT_SECRET || process.env.JWT_SECRET || "";
-  function getUserFromReq(req) {
-    if (req.user && req.user.nivel) return req.user;
-
-    const token = req.cookies?.auth_token;
-    if (!token || !JWT_SECRET) return null;
-
-    try {
-      return jwt.verify(token, JWT_SECRET);
-    } catch {
-      return null;
-    }
+  let queueService;
+  try {
+    queueService = require("./services/queueService");
+    console.log("✅ [ML] QueueService carregado");
+    queueService
+      .iniciarProcessamento()
+      .then(() => console.log("🚀 [ML] Filas iniciadas"))
+      .catch((error) =>
+        console.error("❌ [ML] Erro ao iniciar filas:", error.message),
+      );
+  } catch (error) {
+    console.error("❌ [ML] Erro ao carregar QueueService:", error.message);
+    console.warn("⚠️ [ML] Sem filas");
   }
 
-  function normalizeNivel(n) {
-    return String(n || "")
-      .trim()
-      .toLowerCase();
-  }
-
-  function ensureAdminAnyHtml(req, res, next) {
-    const u = getUserFromReq(req);
-    if (!u) return res.redirect(getBase(req) + "/login");
-
-    const nivel = normalizeNivel(u.nivel);
-    const ok = nivel === "administrador" || nivel === "admin_master";
-    if (!ok) return res.redirect(getBase(req) + "/nao-autorizado");
-
-    req.user = { ...u, nivel };
-    return next();
-  }
-
-  // ==================================================
-  // ✅ Rotas HTML PROTEGIDAS (agora passam pelo ensureAccount)
-  // ==================================================
-  app.get("/dashboard", noCache, (_req, res) => {
-    return res.sendFile(path.join(__dirname, "views", "dashboard.html"));
-  });
-
-  // ✅ ADMIN HTML (serve teus arquivos admin-*.html)
-  app.get("/admin", noCache, ensureAdminAnyHtml, (req, res) => {
-    return res.redirect(getBase(req) + "/admin/usuarios");
-  });
-
-  app.get("/admin/usuarios", noCache, ensureAdminAnyHtml, (_req, res) => {
-    return res.sendFile(path.join(__dirname, "views", "admin-usuarios.html"));
-  });
-
-  app.get("/admin/empresas", noCache, ensureAdminAnyHtml, (_req, res) => {
-    return res.sendFile(path.join(__dirname, "views", "admin-empresas.html"));
-  });
-
-  app.get("/admin/vinculos", noCache, ensureAdminAnyHtml, (_req, res) => {
-    return res.sendFile(path.join(__dirname, "views", "admin-vinculos.html"));
-  });
-
-  app.get("/admin/meli-contas", noCache, ensureAdminAnyHtml, (_req, res) => {
-    return res.sendFile(
-      path.join(__dirname, "views", "admin-meli-contas.html"),
-    );
-  });
-
-  app.get("/admin/meli-tokens", noCache, ensureAdminAnyHtml, (_req, res) => {
-    return res.sendFile(
-      path.join(__dirname, "views", "admin-meli-tokens.html"),
-    );
-  });
-
-  app.get("/admin/oauth-states", noCache, ensureAdminAnyHtml, (_req, res) => {
-    return res.sendFile(
-      path.join(__dirname, "views", "admin-oauth-states.html"),
-    );
-  });
-
-  app.get("/admin/migracoes", noCache, ensureAdminAnyHtml, (_req, res) => {
-    return res.sendFile(path.join(__dirname, "views", "admin-migracoes.html"));
-  });
-
-  app.get("/admin/backup", noCache, ensureAdminAnyHtml, (_req, res) => {
-    return res.sendFile(path.join(__dirname, "views", "admin-backup.html"));
-  });
+  app.locals.queueService = queueService || null;
 
   // ==========================================
   // ✅ Logout (mantém)
@@ -312,13 +328,13 @@ module.exports = function createMlApp() {
   // páginas/HTML do dashboard etc (se existir)
   safeUse("HtmlRoutes", "./routes/htmlRoutes");
 
-  // routers com mount fixo
+  // ✅ IMPORTANTÍSSIMO: routers relativos devem ser montados no prefixo correto
   safeUse("accountRoutes", "./routes/accountRoutes", "/api/account");
   safeUse("meliOAuthRoutes", "./routes/meliOAuthRoutes", "/api/meli");
   safeUse("tokenRoutes", "./routes/tokenRoutes", "/api/tokens");
   safeUse("dashboardRoutes", "./routes/dashboardRoutes", "/api/dashboard");
 
-  // demais (mantém)
+  // os outros eu mantenho como estavam (muitos já têm paths absolutos /ml/api/...)
   safeUse("itemsRoutes", "./routes/itemsRoutes");
   safeUse("editarAnuncioRoutes", "./routes/editarAnuncioRoutes");
   safeUse("excluirAnuncioRoutes", "./routes/excluirAnuncioRoutes");
@@ -339,15 +355,29 @@ module.exports = function createMlApp() {
   );
   safeUse("analytics-abc-Routes", "./routes/analytics-abc-Routes");
 
-  // Admin APIs
-  safeUse("adminUsuariosRoutes", "./routes/adminUsuariosRoutes");
-  safeUse("adminEmpresasRoutes", "./routes/adminEmpresasRoutes");
-  safeUse("adminVinculosRoutes", "./routes/adminVinculosRoutes");
-  safeUse("adminMeliContasRoutes", "./routes/adminMeliContasRoutes");
-  safeUse("adminMeliTokensRoutes", "./routes/adminMeliTokensRoutes");
-  safeUse("adminOAuthStatesRoutes", "./routes/adminOAuthStatesRoutes");
-  safeUse("adminMigracoesRoutes", "./routes/adminMigracoesRoutes");
-  safeUse("adminBackupRoutes", "./routes/adminBackupRoutes");
+  // ==================================================
+  // ✅ Admin APIs
+  // IMPORTANTE: os módulos admin* (do projeto original) esperam ser montados em /api/admin
+  // (ex.: router.get('/usuarios') -> /api/admin/usuarios)
+  // ==================================================
+  function safeUseAdmin(label, modPath) {
+    try {
+      const r = require(modPath);
+      app.use("/api/admin", requireMasterMW, r);
+      console.log(`✅ [ML] ${label} carregado (em /api/admin)`);
+    } catch (e) {
+      console.warn(`⚠️ [ML] Falhou ao carregar ${label}:`, e.message);
+    }
+  }
+
+  safeUseAdmin("adminUsuariosRoutes", "./routes/adminUsuariosRoutes");
+  safeUseAdmin("adminEmpresasRoutes", "./routes/adminEmpresasRoutes");
+  safeUseAdmin("adminVinculosRoutes", "./routes/adminVinculosRoutes");
+  safeUseAdmin("adminMeliContasRoutes", "./routes/adminMeliContasRoutes");
+  safeUseAdmin("adminMeliTokensRoutes", "./routes/adminMeliTokensRoutes");
+  safeUseAdmin("adminOAuthStatesRoutes", "./routes/adminOAuthStatesRoutes");
+  safeUseAdmin("adminMigracoesRoutes", "./routes/adminMigracoesRoutes");
+  safeUseAdmin("adminBackupRoutes", "./routes/adminBackupRoutes");
 
   // ==========================================
   // ERRORS (mantém)
