@@ -1,3 +1,6 @@
+// Base path helper (suite /ml vs standalone)
+const U = (typeof window !== "undefined" && window.mlUrl) ? window.mlUrl : (p) => p;
+
 /* Fila para alteração de prazo (dias) utilizando APENAS fluxo legado:
    - POST /anuncios/prazo-dias-lote      -> { success, process_id }
    - GET  /anuncios/status-prazo/:id    -> { status, progresso, sucessos, erros, ... }
@@ -55,7 +58,7 @@
 
     try {
       // dispara o processamento no backend LEGADO
-      const resp = await fetch("/anuncios/prazo-dias-lote", {
+      const resp = await fetch(U('/anuncios/prazo-dias-lote'), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

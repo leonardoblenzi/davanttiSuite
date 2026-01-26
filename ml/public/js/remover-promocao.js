@@ -1,3 +1,6 @@
+// Base path helper (suite /ml vs standalone)
+const U = (typeof window !== "undefined" && window.mlUrl) ? window.mlUrl : (p) => p;
+
 // Remover Promoção JavaScript
 console.log('Script de remoção de promoções carregado');
 
@@ -41,7 +44,7 @@ async function removerUnico() {
 
         console.log('Enviando requisição para remover promoção...');
         
-        const response = await fetch('/anuncio/remover-promocao', {
+        const response = await fetch(U('/anuncio/remover-promocao'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ mlb_id: mlbId })
@@ -117,7 +120,7 @@ async function removerLote() {
             `🚀 Iniciando remoção em lote...\nTotal: ${mlbIds.length} anúncios\n\n${createProgressBar(0)}`
         );
 
-        const response = await fetch('/anuncios/remover-promocoes-lote', {
+        const response = await fetch(U('/anuncios/remover-promocoes-lote'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 

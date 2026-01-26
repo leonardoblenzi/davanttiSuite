@@ -1,12 +1,15 @@
+// Base path helper (suite /ml vs standalone)
+const U = (typeof window !== "undefined" && window.mlUrl) ? window.mlUrl : (p) => p;
+
 // public/js/prazo.js
 (() => {
   console.log("⏱️ prazo.js carregado");
 
   // ===== Config (agora alinhado com as rotas reais do backend)
-  const API_SINGLE = "/anuncio/prazo-producao";
-  const API_BULK_LEGACY = "/anuncios/prazo-producao-lote"; // fallback sem painel
+  const API_SINGLE = U('/anuncio/prazo-producao');
+  const API_BULK_LEGACY = U('/anuncios/prazo-producao-lote'); // fallback sem painel
   const API_STATUS = (id) =>
-    `/anuncios/status-prazo-producao/${encodeURIComponent(id)}`;
+    U(`/anuncios/status-prazo-producao/${encodeURIComponent(id)}`);
 
   const DEFAULT_DELAY_MS = 250;
 

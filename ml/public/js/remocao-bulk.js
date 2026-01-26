@@ -1,3 +1,6 @@
+// Base path helper (suite /ml vs standalone)
+const U = (typeof window !== "undefined" && window.mlUrl) ? window.mlUrl : (p) => p;
+
 /* Fila para remoção utilizando APENAS o fluxo legado:
    - POST /anuncios/remover-promocoes-lote  -> { success, process_id }
    - GET  /anuncios/status-remocao/:id      -> { status, progresso, sucessos, erros, ... }
@@ -48,7 +51,7 @@
 
     try {
       // dispara o processamento no backend LEGADO
-      const resp = await fetch('/anuncios/remover-promocoes-lote', {
+      const resp = await fetch(U('/anuncios/remover-promocoes-lote'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
