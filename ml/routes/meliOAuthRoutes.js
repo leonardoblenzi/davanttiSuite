@@ -55,6 +55,30 @@ function cookieOptions() {
 }
 
 // ===============================
+// Helpers: base path (suite /ml vs standalone /)
+// ===============================
+function mountBase(req) {
+  const b = String(req.baseUrl || "");
+  const i = b.indexOf("/api/");
+  if (i >= 0) return b.slice(0, i) || "";
+  return b;
+}
+
+function withBase(req, path) {
+  const base = mountBase(req);
+  if (!path) return base || "/";
+  if (/^https?:\/\//i.test(path)) return path;
+  const p = String(path).startsWith("/") ? String(path) : `/${path}`;
+  if (base && (p === base || p.startsWith(base + "/"))) return p;
+  return base + p;
+}
+
+function wantsHtml(req) {
+  const accept = String(req.headers?.accept || "").toLowerCase();
+  return accept.includes("text/html") || accept.includes("application/xhtml+xml");
+}
+
+// ===============================
 // Helpers: auth/role
 // ===============================
 function mustBeLogged(req) {
@@ -347,70 +371,103 @@ router.get("/contas", async (req, res) => {
 // - Usuário normal/admin: só seleciona conta da própria empresa
 // - Master: pode selecionar qualquer conta existente
 // ===============================
+
+async function handleSelecionarConta(req, res, meli_conta_id, opts = {}) {
+  const { redirectOnSuccess = false } = opts;
+
+  const wantsRedirect =
+    redirectOnSuccess && wantsHtml(req) && req.method === "GET";
+
+  const uid = mustBeLogged(req);
+  if (!uid) {
+    if (wantsRedirect) return res.redirect(withBase(req, "/login"));
+    return res.status(401).json({ ok: false, error: "Não autenticado." });
+  }
+
+  const master = isMaster(req);
+
+  if (!Number.isFinite(meli_conta_id)) {
+    if (wantsRedirect) return res.redirect(withBase(req, "/select-conta"));
+    return res.status(400).json({ ok: false, error: "meli_conta_id inválido." });
+  }
+
+  const ok = await db.withClient(async (client) => {
+    if (master) {
+      const r = await client.query(
+        `select 1 from meli_contas where id = $1 limit 1`,
+        [meli_conta_id]
+      );
+      return !!r.rows[0];
+    }
+
+    const emp = await getEmpresaDoUsuario(client, uid);
+    if (!emp) throw new Error("Usuário não está vinculado a nenhuma empresa.");
+
+    const r = await client.query(
+      `select 1
+         from meli_contas c
+        where c.id = $1 and c.empresa_id = $2
+        limit 1`,
+      [meli_conta_id, emp.empresa_id]
+    );
+    return !!r.rows[0];
+  });
+
+  if (!ok) {
+    if (wantsRedirect) return res.redirect(withBase(req, "/select-conta"));
+    return res.status(404).json({
+      ok: false,
+      error: master
+        ? "Conta não encontrada."
+        : "Conta não encontrada para sua empresa.",
+    });
+  }
+
+  // marca último uso
+  try {
+    await db.query(
+      `update meli_contas set ultimo_uso_em = now() where id = $1`,
+      [meli_conta_id]
+    );
+  } catch (_) {}
+
+  // ✅ evita cookies duplicados (ex.: um antigo com path "/ml" e outro com "/")
+  // Isso pode fazer o servidor ler o ID errado dependendo da ordem do header.
+  res.clearCookie(COOKIE_MELI_CONTA, { path: "/ml" });
+  res.clearCookie(COOKIE_MELI_CONTA, { path: "/" });
+  res.cookie(COOKIE_MELI_CONTA, String(meli_conta_id), cookieOptions());
+
+  if (wantsRedirect) {
+    // Compat legado: seleção via navegação (GET)
+    return res.redirect(withBase(req, "/dashboard"));
+  }
+
+  return res.json({ ok: true, meli_conta_id });
+}
+
+// ✅ Compat LEGADO: permite selecionar via GET /api/meli/selecionar?meli_conta_id=...
+router.get("/selecionar", async (req, res) => {
+  try {
+    const meli_conta_id = Number(req.query?.meli_conta_id);
+    return await handleSelecionarConta(req, res, meli_conta_id, {
+      redirectOnSuccess: true,
+    });
+  } catch (e) {
+    console.error("GET /api/meli/selecionar erro:", e?.message || e);
+    if (wantsHtml(req)) return res.redirect(withBase(req, "/select-conta"));
+    return res.status(500).json({ ok: false, error: "Erro ao selecionar conta." });
+  }
+});
+
 router.post(
   "/selecionar",
   express.json({ limit: "50kb" }),
   async (req, res) => {
     try {
-      const uid = mustBeLogged(req);
-      if (!uid)
-        return res.status(401).json({ ok: false, error: "Não autenticado." });
-
-      const master = isMaster(req);
-
       const meli_conta_id = Number(req.body?.meli_conta_id);
-      if (!Number.isFinite(meli_conta_id)) {
-        return res
-          .status(400)
-          .json({ ok: false, error: "meli_conta_id inválido." });
-      }
-
-      const ok = await db.withClient(async (client) => {
-        if (master) {
-          const r = await client.query(
-            `select 1 from meli_contas where id = $1 limit 1`,
-            [meli_conta_id]
-          );
-          return !!r.rows[0];
-        }
-
-        const emp = await getEmpresaDoUsuario(client, uid);
-        if (!emp)
-          throw new Error("Usuário não está vinculado a nenhuma empresa.");
-
-        const r = await client.query(
-          `select 1
-           from meli_contas c
-          where c.id = $1 and c.empresa_id = $2
-          limit 1`,
-          [meli_conta_id, emp.empresa_id]
-        );
-        return !!r.rows[0];
+      return await handleSelecionarConta(req, res, meli_conta_id, {
+        redirectOnSuccess: false,
       });
-
-      if (!ok) {
-        return res.status(404).json({
-          ok: false,
-          error: master
-            ? "Conta não encontrada."
-            : "Conta não encontrada para sua empresa.",
-        });
-      }
-
-      // marca último uso
-      try {
-        await db.query(
-          `update meli_contas set ultimo_uso_em = now() where id = $1`,
-          [meli_conta_id]
-        );
-      } catch (_) {}
-
-      // ✅ evita cookies duplicados (ex.: um antigo com path "/ml" e outro com "/")
-      // Isso pode fazer o servidor ler o ID errado dependendo da ordem do header.
-      res.clearCookie(COOKIE_MELI_CONTA, { path: "/ml" });
-      res.clearCookie(COOKIE_MELI_CONTA, { path: "/" });
-      res.cookie(COOKIE_MELI_CONTA, String(meli_conta_id), cookieOptions());
-      return res.json({ ok: true, meli_conta_id });
     } catch (e) {
       console.error("POST /api/meli/selecionar erro:", e?.message || e);
       return res

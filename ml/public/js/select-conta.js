@@ -492,14 +492,14 @@
       .join("");
 
     [...elList.querySelectorAll(".acc-btn")].forEach((btn) => {
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", async () => {
         const id = Number(btn.getAttribute("data-id"));
         if (!Number.isFinite(id)) return;
         clearAlert();
 
-        // ✅ Fluxo via navegação (GET): seta cookie e redireciona server-side.
-        // É mais robusto em ambientes com proxy/SSL.
-        window.location.href = U(`/api/meli/selecionar?meli_conta_id=${encodeURIComponent(String(id))}`);
+        // ✅ Fluxo padrão (POST JSON): evita navegação GET que pode bater em 404.
+        // O backend responde ok e nós redirecionamos para /dashboard.
+        await selecionarContaOAuth(id);
       });
     });
   }
